@@ -1,0 +1,81 @@
+name: docs-sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      package_repository:
+        description: Source package repository (owner/name)
+        required: false
+        default: albertabayor/timetable-sa
+  repository_dispatch:
+    types:
+      - docs-updated
+  schedule:
+    - cron: '0 2 * * *'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout docs repository
+        uses: actions/checkout@v4
+
+      - name: Resolve source repository
+        id: source
+        shell: bash
+        run: |
+          if [ -n "${{ inputs.package_repository }}" ]; then
+            echo "repository=${{ inputs.package_repository }}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ github.event.client_payload.package_repository }}" ]; then
+            echo "repository=${{ github.event.client_payload.package_repository }}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ vars.PACKAGE_REPOSITORY }}" ]; then
+            echo "repository=${{ vars.PACKAGE_REPOSITORY }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "repository=albertabayor/timetable-sa" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout package repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.source.outputs.repository }}
+          path: .cache/package-repo
+          fetch-depth: 1
+          token: ${{ secrets.PACKAGE_REPO_READ_TOKEN != '' && secrets.PACKAGE_REPO_READ_TOKEN || github.token }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Sync docs from package repository
+        run: bun run sync:docs -- --source .cache/package-repo/docs
+
+      - name: Transform docs for Fumadocs
+        run: bun run transform:docs
+
+      - name: Validate frontmatter
+        run: bun run validate:frontmatter
+
+      - name: Check internal links
+        run: bun run check:links
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: 'chore(docs): sync content from package repository'
+          title: 'chore(docs): sync content from package repository'
+          body: |
+            ## Summary
+            - sync markdown files from `${{ steps.source.outputs.repository }}/docs`
+            - transform docs into Fumadocs-ready pages with frontmatter and `meta.json`
+            - run docs quality gates (`validate:frontmatter`, `check:links`)
+          branch: chore/docs-sync
+          delete-branch: true

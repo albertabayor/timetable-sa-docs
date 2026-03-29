@@ -1,0 +1,18 @@
+{
+  "pages": [
+    "index",
+    "introduction",
+    "installation",
+    "quickstart",
+    "core-concepts",
+    "configuration",
+    "advanced-features",
+    "examples",
+    "testing-guide",
+    "troubleshooting",
+    "architecture",
+    "api-reference",
+    "migration-guide",
+    "getting-started"
+  ]
+}

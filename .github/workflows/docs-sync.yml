@@ -45,7 +45,6 @@ jobs:
           repository: ${{ steps.source.outputs.repository }}
           path: .cache/package-repo
           fetch-depth: 1
-          token: ${{ secrets.PACKAGE_REPO_READ_TOKEN != '' && secrets.PACKAGE_REPO_READ_TOKEN || github.token }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2

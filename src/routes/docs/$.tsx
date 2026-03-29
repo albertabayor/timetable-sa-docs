@@ -1,4 +1,4 @@
-import { createFileRoute, notFound } from '@tanstack/react-router';
+import { createFileRoute, notFound, redirect } from '@tanstack/react-router';
 import { DocsLayout } from 'fumadocs-ui/layouts/docs';
 import { createServerFn } from '@tanstack/react-start';
 import { getPageMarkdownUrl, source } from '@/lib/source';
@@ -17,9 +17,23 @@ import { useFumadocsLoader } from 'fumadocs-core/source/client';
 import { Suspense } from 'react';
 import { useMDXComponents } from '@/components/mdx';
 
+const legacySlugRedirects: Record<string, string> = {
+  'getting-started': 'quickstart',
+};
+
 export const Route = createFileRoute('/docs/$')({
   component: Page,
   loader: async ({ params }) => {
+    const splat = params._splat ?? '';
+    const redirectTarget = legacySlugRedirects[splat];
+
+    if (redirectTarget) {
+      throw redirect({
+        to: '/docs/$',
+        params: { _splat: redirectTarget },
+      });
+    }
+
     const slugs = params._splat?.split('/') ?? [];
     const data = await serverLoader({ data: slugs });
     await clientLoader.preload(data.path);

@@ -2,6 +2,7 @@
   "pages": [
     "index",
     "introduction",
+    "getting-started",
     "installation",
     "quickstart",
     "core-concepts",
@@ -12,7 +13,6 @@
     "troubleshooting",
     "architecture",
     "api-reference",
-    "migration-guide",
-    "getting-started"
+    "migration-guide"
   ]
 }

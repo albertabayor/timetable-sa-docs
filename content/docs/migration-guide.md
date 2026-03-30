@@ -1,6 +1,6 @@
 ---
 title: "Migration Guide"
-description: "This guide helps you migrate from older, more domain-specific usage patterns to"
+description: "Migrate older integrations to the current generic `timetable-sa` solver API."
 ---
 
 # Migration Guide
@@ -115,7 +115,7 @@ Use this order to reduce migration risk.
 
 Once the migration is complete:
 
-- read `api-reference.md` to verify current contracts,
-- read `configuration.md` to tune the new runtime surface,
-- read `troubleshooting.md` if the migrated system behaves differently than
-  expected.
+- read [API Reference](/docs/api-reference) to verify current contracts,
+- read [Configuration](/docs/configuration) to tune the new runtime surface,
+- read [Troubleshooting](/docs/troubleshooting) if the migrated system behaves
+  differently than expected.

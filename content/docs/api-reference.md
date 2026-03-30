@@ -1,9 +1,9 @@
 ---
-title: "API reference"
-description: "This document is the source-of-truth reference for the public API exposed by"
+title: "API Reference"
+description: "Reference every public API contract, default, and error behavior in `timetable-sa`."
 ---
 
-# API reference
+# API Reference
 
 This document is the source-of-truth reference for the public API exposed by
 `timetable-sa`. It is derived from the implementation in `src/`, not from
@@ -621,6 +621,9 @@ const config: SAConfig<MyState> = {
 
 If you are choosing where to go next, use the documents by intent:
 
-- Read `configuration.md` for tuning guidance and parameter trade-offs.
-- Read `advanced-features.md` for algorithm lifecycle and acceptance behavior.
-- Read `architecture.md` for internal component relationships and data flow.
+- Read [Configuration](/docs/configuration) for tuning guidance and parameter
+  trade-offs.
+- Read [Algorithm and Runtime Behavior](/docs/advanced-features) for algorithm
+  lifecycle and acceptance behavior.
+- Read [Internal Architecture](/docs/architecture) for internal component
+  relationships and data flow.

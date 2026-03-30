@@ -1,6 +1,6 @@
 ---
 title: "Core Concepts"
-description: "This guide explains the conceptual model behind `timetable-sa`. It focuses on"
+description: "Understand the state model, scoring semantics, and runtime guarantees in `timetable-sa`."
 ---
 
 # Core Concepts
@@ -141,6 +141,7 @@ The implementation provides a small but important set of safety guarantees.
 
 If you want to move from concepts to implementation detail:
 
-- read `quickstart.md` for an end-to-end example,
-- read `configuration.md` for tuning strategy,
-- read `advanced-features.md` for phase logic and algorithm behavior.
+- read [Quick Start](/docs/quickstart) for an end-to-end example,
+- read [Configuration](/docs/configuration) for tuning strategy,
+- read [Algorithm and Runtime Behavior](/docs/advanced-features) for phase
+  logic and algorithm behavior.

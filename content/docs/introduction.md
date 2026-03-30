@@ -1,6 +1,6 @@
 ---
 title: "Introduction"
-description: "`timetable-sa` is a generic optimization library for constraint-driven search"
+description: "Understand what `timetable-sa` solves and how to navigate the docs effectively."
 ---
 
 # Introduction
@@ -89,6 +89,7 @@ domains without embedding a specific scheduling ontology.
 
 To continue from this conceptual overview:
 
-- read `installation.md` to set up the package,
-- read `quickstart.md` for the smallest working example,
-- read `core-concepts.md` for the contracts that shape correct integrations.
+- read [Installation](/docs/installation) to set up the package,
+- read [Quick Start](/docs/quickstart) for the smallest working example,
+- read [Core Concepts](/docs/core-concepts) for the contracts that shape
+  correct integrations.

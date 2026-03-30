@@ -92,15 +92,40 @@ export const Route = createFileRoute('/docs/$')({
 
     if (!path) throw notFound();
 
+    const loaded = (await clientLoader.preload(path)) as {
+      frontmatter?: {
+        title?: unknown;
+        description?: unknown;
+      };
+    };
+
     const data = {
       path,
       markdownUrl: getPageMarkdownUrlFromPath(path),
       pageTree: docsPageTree,
+      title:
+        typeof loaded.frontmatter?.title === 'string'
+          ? loaded.frontmatter.title
+          : formatTitleFromSlug(slug === '' ? 'index' : slug),
+      description:
+        typeof loaded.frontmatter?.description === 'string'
+          ? loaded.frontmatter.description
+          : 'Technical documentation for timetable-sa.',
     };
 
-    await clientLoader.preload(data.path);
     return data;
   },
+  head: ({ loaderData }) => ({
+    meta: [
+      {
+        title: `${loaderData?.title ?? 'Documentation'} | timetable-sa docs`,
+      },
+      {
+        name: 'description',
+        content: loaderData?.description ?? 'Technical documentation for timetable-sa.',
+      },
+    ],
+  }),
 });
 
 const clientLoader = browserCollections.docs.createClientLoader({

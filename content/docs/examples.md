@@ -1,6 +1,6 @@
 ---
 title: "Examples"
-description: "This page keeps the examples simple. Start with one small generic problem, then"
+description: "Start with a small generic example, then adapt the same pattern to your domain."
 ---
 
 # Examples
@@ -89,6 +89,7 @@ Use this example to understand the minimum pieces you need:
 
 After this example works, continue with:
 
-- `quickstart.md` for a guided setup,
-- `configuration.md` for tuning options,
-- `testing-guide.md` for validating your constraints and moves.
+- [Quick Start](/docs/quickstart) for a guided setup,
+- [Configuration](/docs/configuration) for tuning options,
+- [Testing Guide](/docs/testing-guide) for validating your constraints and
+  moves.

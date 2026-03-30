@@ -1,6 +1,6 @@
 ---
 title: "Troubleshooting"
-description: "This guide covers the failure modes and operational pathologies that are most"
+description: "Debug common failure modes and runtime pathologies when integrating `timetable-sa`."
 ---
 
 # Troubleshooting
@@ -301,6 +301,8 @@ When debugging difficult behavior, inspect the system in this order:
 
 If you need more implementation detail after debugging:
 
-- read `api-reference.md` for precise type and error contracts,
-- read `configuration.md` for tuning strategy,
-- read `advanced-features.md` for the algorithm rules behind these symptoms.
+- read [API Reference](/docs/api-reference) for precise type and error
+  contracts,
+- read [Configuration](/docs/configuration) for tuning strategy,
+- read [Algorithm and Runtime Behavior](/docs/advanced-features) for the
+  algorithm rules behind these symptoms.

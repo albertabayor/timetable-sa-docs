@@ -1,6 +1,6 @@
 ---
 title: "Quick Start"
-description: "This page walks through the smallest complete setup that can solve a"
+description: "Build the smallest complete `timetable-sa` setup that solves a real problem."
 ---
 
 # Quick Start
@@ -161,6 +161,6 @@ Once the minimal flow works, the most valuable improvements are usually:
 
 To deepen the integration:
 
-- read `core-concepts.md` for the exact contracts,
-- read `configuration.md` for tuning strategy,
-- read `api-reference.md` for the full public surface.
+- read [Core Concepts](/docs/core-concepts) for the exact contracts,
+- read [Configuration](/docs/configuration) for tuning strategy,
+- read [API Reference](/docs/api-reference) for the full public surface.

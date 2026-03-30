@@ -1,6 +1,6 @@
 ---
 title: "Installation"
-description: "This guide covers the minimal setup needed to use `timetable-sa` in a Node.js or"
+description: "Set up `timetable-sa` in a modern Node.js or Bun TypeScript project."
 ---
 
 # Installation
@@ -18,13 +18,32 @@ You need the following baseline environment:
 - a TypeScript project if you want full type inference and generic state safety,
 - an application-level module system compatible with modern package exports.
 
-## Install from npm
+## Install with npm or Bun
 
-Install the package from npm.
+Install the package with npm or Bun.
+
+<CodeBlockTabs defaultValue="npm">
+  <CodeBlockTabsList>
+    <CodeBlockTabsTrigger value="npm">npm</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="bun">bun</CodeBlockTabsTrigger>
+  </CodeBlockTabsList>
+
+  <CodeBlockTab value="npm">
 
 ```bash
 npm install timetable-sa
 ```
+
+  </CodeBlockTab>
+
+  <CodeBlockTab value="bun">
+
+```bash
+bun add timetable-sa
+```
+
+  </CodeBlockTab>
+</CodeBlockTabs>
 
 ## Import the public API
 
@@ -55,5 +74,5 @@ Several operational details are useful to know before integration.
 
 ## Recommended next step
 
-Once installation is complete, continue to `quickstart.md` for a minimal
-end-to-end solver example.
+Once installation is complete, continue to [Quick Start](/docs/quickstart)
+for a minimal end-to-end solver example.

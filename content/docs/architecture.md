@@ -1,9 +1,9 @@
 ---
-title: "Internal architecture"
-description: "This document explains how the implementation is organized internally and how"
+title: "Internal Architecture"
+description: "Understand module boundaries, data flow, and orchestration inside the solver runtime."
 ---
 
-# Internal architecture
+# Internal Architecture
 
 This document explains how the implementation is organized internally and how
 its major subsystems collaborate during a solve. It is written for maintainers,
@@ -456,6 +456,8 @@ maintenance principles.
 
 For adjacent technical detail, continue with:
 
-- `advanced-features.md` for algorithm behavior and acceptance rules,
-- `api-reference.md` for exact public contracts,
-- `configuration.md` for parameter defaults and validation rules.
+- [Algorithm and Runtime Behavior](/docs/advanced-features) for algorithm
+  behavior and acceptance rules,
+- [API Reference](/docs/api-reference) for exact public contracts,
+- [Configuration](/docs/configuration) for parameter defaults and validation
+  rules.

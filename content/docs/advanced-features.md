@@ -1,9 +1,9 @@
 ---
-title: "Algorithm and runtime behavior"
-description: "This document explains how the solver actually behaves at runtime. It maps the"
+title: "Algorithm and Runtime Behavior"
+description: "Dive into phase logic, acceptance rules, and search behavior in the runtime engine."
 ---
 
-# Algorithm and runtime behavior
+# Algorithm and Runtime Behavior
 
 This document explains how the solver actually behaves at runtime. It maps the
 public concepts in `timetable-sa` to the implementation in
@@ -430,6 +430,8 @@ and domain-aware in its heuristics.
 
 To connect this runtime view to the rest of the codebase:
 
-- Read `architecture.md` for component boundaries and data flow.
-- Read `api-reference.md` for exact public type contracts.
-- Read `configuration.md` for parameter tuning guidance based on these rules.
+- Read [Internal Architecture](/docs/architecture) for component boundaries and
+  data flow.
+- Read [API Reference](/docs/api-reference) for exact public type contracts.
+- Read [Configuration](/docs/configuration) for parameter tuning guidance based
+  on these rules.

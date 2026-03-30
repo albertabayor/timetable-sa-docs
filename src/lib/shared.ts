@@ -8,3 +8,5 @@ export const gitConfig = {
   repo: 'timetable-sa-docs',
   branch: 'main',
 };
+
+export const packageRepoUrl = 'https://github.com/albertabayor/timetable-sa';

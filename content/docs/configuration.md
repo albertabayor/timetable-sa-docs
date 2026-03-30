@@ -1,9 +1,9 @@
 ---
-title: "Configuration guide"
-description: "This guide explains `SAConfig<TState>` from both a practical tuning perspective"
+title: "Configuration Guide"
+description: "Tune `SAConfig<TState>` with implementation-accurate defaults, rules, and trade-offs."
 ---
 
-# Configuration guide
+# Configuration Guide
 
 This guide explains `SAConfig<TState>` from both a practical tuning perspective
 and an implementation-accurate perspective. It documents which fields are truly
@@ -472,7 +472,9 @@ These patterns are valid in the type system but often harmful in practice.
 
 To validate and tune a configuration more effectively:
 
-- read `advanced-features.md` for the precise runtime rules behind each option,
-- read `api-reference.md` for exact defaults and type semantics,
-- read `troubleshooting.md` when a configuration appears valid but behaves
-  poorly in practice.
+- read [Algorithm and Runtime Behavior](/docs/advanced-features) for the
+  precise runtime rules behind each option,
+- read [API Reference](/docs/api-reference) for exact defaults and type
+  semantics,
+- read [Troubleshooting](/docs/troubleshooting) when a configuration appears
+  valid but behaves poorly in practice.

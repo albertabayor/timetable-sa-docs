@@ -1,6 +1,6 @@
 ---
 title: "Testing Guide"
-description: "Comprehensive testing strategies for constraints, move generators, and solver"
+description: "Test constraints, move generators, and solver behavior with practical TypeScript patterns."
 ---
 
 # Testing Guide

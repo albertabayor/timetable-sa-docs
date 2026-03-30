@@ -1,6 +1,5 @@
 import { createFileRoute, notFound } from '@tanstack/react-router';
 import { DocsLayout } from 'fumadocs-ui/layouts/docs';
-import { getPageMarkdownUrl, source } from '@/lib/source';
 import browserCollections from 'collections/browser';
 import {
   DocsBody,
@@ -11,22 +10,92 @@ import {
   ViewOptionsPopover,
 } from 'fumadocs-ui/layouts/docs/page';
 import { baseOptions } from '@/lib/layout.shared';
-import { gitConfig } from '@/lib/shared';
+import { docsContentRoute, gitConfig } from '@/lib/shared';
 import { Suspense } from 'react';
 import { useMDXComponents } from '@/components/mdx';
+import type * as PageTree from 'fumadocs-core/page-tree';
+import docsMeta from '../../../content/docs/meta.json';
+
+const availableDocPaths = new Set(
+  Object.keys(browserCollections.docs.raw).map((entry) =>
+    entry.startsWith('./') ? entry.slice(2) : entry,
+  ),
+);
+
+function normalizeSplat(splat: string | undefined) {
+  return (splat ?? '').replace(/^\/+|\/+$/g, '');
+}
+
+function resolveDocPathFromSlug(slug: string) {
+  const base = slug === '' ? 'index' : slug;
+
+  const candidates = [
+    `${base}.md`,
+    `${base}.mdx`,
+    `${base}/index.md`,
+    `${base}/index.mdx`,
+  ];
+
+  return candidates.find((candidate) => availableDocPaths.has(candidate));
+}
+
+function formatTitleFromSlug(slug: string) {
+  if (slug === 'index') return 'Overview';
+
+  return slug
+    .split('/')
+    .pop()
+    ?.split('-')
+    .filter(Boolean)
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(' ') ?? slug;
+}
+
+function buildPageTree(): PageTree.Root {
+  const pages: PageTree.Node[] = [];
+
+  for (const slug of docsMeta.pages) {
+    const resolved = resolveDocPathFromSlug(slug === 'index' ? '' : slug);
+    if (!resolved) continue;
+
+    pages.push({
+      type: 'page',
+      name: formatTitleFromSlug(slug),
+      url: slug === 'index' ? '/docs' : `/docs/${slug}`,
+    });
+  }
+
+  return {
+    name: 'Documentation',
+    children: pages,
+  };
+}
+
+function getPageMarkdownUrlFromPath(docPath: string) {
+  const noExtension = docPath.replace(/\.(md|mdx)$/i, '');
+  const normalized = noExtension.endsWith('/index')
+    ? noExtension.slice(0, -'/index'.length)
+    : noExtension;
+  const slugs = normalized === 'index' || normalized === '' ? [] : normalized.split('/');
+  const segments = [...slugs, 'content.md'];
+
+  return `${docsContentRoute}/${segments.join('/')}`;
+}
+
+const docsPageTree = buildPageTree();
 
 export const Route = createFileRoute('/docs/$')({
   component: Page,
   loader: async ({ params }) => {
-    const slugs = params._splat?.split('/') ?? [];
+    const slug = normalizeSplat(params._splat);
+    const path = resolveDocPathFromSlug(slug);
 
-    const page = source.getPage(slugs);
-    if (!page) throw notFound();
+    if (!path) throw notFound();
 
     const data = {
-      path: page.path,
-      markdownUrl: getPageMarkdownUrl(page).url,
-      pageTree: source.getPageTree(),
+      path,
+      markdownUrl: getPageMarkdownUrlFromPath(path),
+      pageTree: docsPageTree,
     };
 
     await clientLoader.preload(data.path);

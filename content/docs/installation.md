@@ -18,13 +18,15 @@ You need the following baseline environment:
 - a TypeScript project if you want full type inference and generic state safety,
 - an application-level module system compatible with modern package exports.
 
-## Install with npm or Bun
+## Install with your package manager
 
-Install the package with npm or Bun.
+Install the package with your package manager.
 
-<CodeBlockTabs defaultValue="npm">
+<CodeBlockTabs defaultValue="npm" groupId="package-manager">
   <CodeBlockTabsList>
     <CodeBlockTabsTrigger value="npm">npm</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="pnpm">pnpm</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="yarn">yarn</CodeBlockTabsTrigger>
     <CodeBlockTabsTrigger value="bun">bun</CodeBlockTabsTrigger>
   </CodeBlockTabsList>
 
@@ -32,6 +34,22 @@ Install the package with npm or Bun.
 
 ```bash
 npm install timetable-sa
+```
+
+  </CodeBlockTab>
+
+  <CodeBlockTab value="pnpm">
+
+```bash
+pnpm add timetable-sa
+```
+
+  </CodeBlockTab>
+
+  <CodeBlockTab value="yarn">
+
+```bash
+yarn add timetable-sa
 ```
 
   </CodeBlockTab>

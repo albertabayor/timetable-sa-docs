@@ -9,11 +9,13 @@ Use this path if you are starting from zero and want a practical first result.
 
 ## 1. Install the package
 
-Install with npm or Bun:
+Install with your package manager:
 
-<CodeBlockTabs defaultValue="npm">
+<CodeBlockTabs defaultValue="npm" groupId="package-manager">
   <CodeBlockTabsList>
     <CodeBlockTabsTrigger value="npm">npm</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="pnpm">pnpm</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="yarn">yarn</CodeBlockTabsTrigger>
     <CodeBlockTabsTrigger value="bun">bun</CodeBlockTabsTrigger>
   </CodeBlockTabsList>
 
@@ -21,6 +23,22 @@ Install with npm or Bun:
 
 ```bash
 npm install timetable-sa
+```
+
+  </CodeBlockTab>
+
+  <CodeBlockTab value="pnpm">
+
+```bash
+pnpm add timetable-sa
+```
+
+  </CodeBlockTab>
+
+  <CodeBlockTab value="yarn">
+
+```bash
+yarn add timetable-sa
 ```
 
   </CodeBlockTab>

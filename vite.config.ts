@@ -15,6 +15,7 @@ export default defineConfig({
       prerender: {
         enabled: true,
       },
+      pages: [{ path: '/api/search' }],
     }),
     react(),
   ],

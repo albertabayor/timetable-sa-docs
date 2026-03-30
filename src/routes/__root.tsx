@@ -29,7 +29,14 @@ function RootComponent() {
         <HeadContent />
       </head>
       <body className="flex flex-col min-h-screen">
-        <RootProvider>
+        <RootProvider
+          search={{
+            options: {
+              type: 'static',
+              api: '/api/search',
+            },
+          }}
+        >
           <Outlet />
         </RootProvider>
         <Scripts />

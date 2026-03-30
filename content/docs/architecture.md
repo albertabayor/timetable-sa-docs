@@ -32,8 +32,9 @@ collaborating layers.
 
 ### Public orchestration layer
 
-`src/core/SimulatedAnnealing.ts` owns the end-to-end lifecycle of a solve.
-Every public operation ultimately routes through this class.
+[`src/core/SimulatedAnnealing.ts`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/SimulatedAnnealing.ts)
+owns the end-to-end lifecycle of a solve. Every public operation ultimately
+routes through this class.
 
 Its responsibilities include:
 
@@ -50,54 +51,179 @@ Its responsibilities include:
 
 The validation layer consists of two focused modules.
 
-- `src/core/validation/ConfigValidator.ts` validates constructor inputs and
-  resolves defaults.
-- `src/core/validation/ConstraintValidator.ts` validates runtime constraint
-  scores.
+- [`src/core/validation/ConfigValidator.ts`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/validation/ConfigValidator.ts)
+  validates constructor inputs and resolves defaults.
+- [`src/core/validation/ConstraintValidator.ts`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/validation/ConstraintValidator.ts)
+  validates runtime constraint scores.
 
 The layer is conservative and fail-fast, but it does not attempt deep semantic
 verification such as determinism checks or cross-field optimization advice.
+
+#### Validation code highlights
+
+The constructor validator enforces shape and numeric contracts before the solver
+starts running.
+
+```ts
+for (const constraint of constraints) {
+  if (!constraint.name || typeof constraint.name !== 'string') {
+    throw new SAConfigError('All constraints must have a name property');
+  }
+
+  if (!constraint.type || !['hard', 'soft'].includes(constraint.type)) {
+    throw new SAConfigError(
+      `Constraint "${constraint.name}" must have type 'hard' or 'soft'`
+    );
+  }
+}
+
+assertFiniteNumber(config.coolingRate, 'coolingRate');
+if (config.coolingRate <= 0 || config.coolingRate >= 1) {
+  throw new SAConfigError(
+    `coolingRate must be between 0 and 1 (exclusive), got ${config.coolingRate}`
+  );
+}
+```
+
+The runtime validator wraps every score evaluation to enforce the score range
+contract on every call.
+
+```ts
+const score = constraint.evaluate(state);
+
+if (typeof score !== 'number' || !Number.isFinite(score)) {
+  throw new ConstraintValidationError(
+    `Constraint "${constraint.name}" returned invalid score (${score}).`
+  );
+}
+
+if (score < 0 || score > 1) {
+  throw new ConstraintValidationError(
+    `Constraint "${constraint.name}" returned out-of-range score (${score}).`
+  );
+}
+```
+
+For full implementation detail, use the source links above as the canonical
+reference.
 
 ### Policy layer
 
 The policy layer encapsulates small decision functions rather than full
 framework-style plug-in abstractions.
 
-- `src/core/policies/AcceptancePolicy.ts` computes acceptance probabilities.
-- `src/core/policies/OperatorSelectionPolicy.ts` implements hybrid and
+- [`src/core/policies/AcceptancePolicy.ts`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/policies/AcceptancePolicy.ts)
+  computes acceptance probabilities.
+- [`src/core/policies/OperatorSelectionPolicy.ts`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/policies/OperatorSelectionPolicy.ts)
+  implements hybrid and
   roulette-wheel operator selection.
 
 This separation keeps acceptance and selection logic testable and independent of
 the rest of the solver state machine.
+
+#### Policy code highlights
+
+Phase 1 and Phase 2 use separate acceptance policies so each phase can enforce
+its own hard-violation rules.
+
+```ts
+if (newHardViolations < currentHardViolations) {
+  return 1.0;
+}
+
+if (newHardViolations > bestHardViolations) {
+  return 0.0;
+}
+```
+
+Operator selection uses a smoothed success-rate strategy with an exploration
+branch in hybrid mode.
+
+```ts
+if (Math.random() < 0.3) {
+  return generators[Math.floor(Math.random() * generators.length)]!;
+}
+
+return (stats.improvements + alpha) / (stats.attempts + beta);
+```
 
 ### Tabu layer
 
 The tabu layer provides state-signature generation and bounded short-term
 memory.
 
-- `src/core/tabu/StateSignature.ts` generates deterministic signatures.
-- `src/core/tabu/TabuMemory.ts` stores recent signatures and applies aspiration
+- [`src/core/tabu/StateSignature.ts`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/tabu/StateSignature.ts)
+  generates deterministic signatures.
+- [`src/core/tabu/TabuMemory.ts`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/tabu/TabuMemory.ts)
+  stores recent signatures and applies aspiration
   logic.
+
+#### Tabu code highlights
+
+Tabu skipping and aspiration are handled in one focused decision method.
+
+```ts
+if (!this.contains(signature, currentIteration)) {
+  return false;
+}
+
+if (aspirationEnabled && newFitness < globalBestFitness) {
+  return false;
+}
+
+return true;
+```
 
 ### Telemetry layer
 
 The telemetry layer is split between logging and callback reporting.
 
-- `src/core/telemetry/Logger.ts` emits structured log lines to console and or
-  file.
-- `src/core/telemetry/ProgressReporter.ts` tracks progress counters and safely
-  invokes callbacks.
+- [`src/core/telemetry/Logger.ts`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/telemetry/Logger.ts)
+  emits structured log lines to console and/or file.
+- [`src/core/telemetry/ProgressReporter.ts`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/telemetry/ProgressReporter.ts)
+  tracks progress counters and safely invokes callbacks.
+
+#### Telemetry code highlights
+
+Logger sanitization redacts sensitive keys before serialization.
+
+```ts
+const sensitiveKeyPattern =
+  /(password|secret|token|apikey|api_key|authorization|cookie|session)/i;
+
+if (sensitiveKeyPattern.test(key)) {
+  redacted[key] = '[REDACTED]';
+}
+```
+
+Progress callbacks are isolated so telemetry failures do not break solve logic.
+
+```ts
+try {
+  const result = onProgress(iteration, currentCost, temperature, null, stats);
+  if (result instanceof Promise) await result;
+} catch (error) {
+  onError(error);
+}
+```
 
 ### Type and error layer
 
 Type and error definitions formalize the public and internal contracts.
 
-- `src/core/types/` defines `Solution`, `Violation`, and `ProgressStats`.
-- `src/core/interfaces/` defines `Constraint`, `MoveGenerator`, and
-  `SAConfig`.
-- `src/core/errors.ts` defines the explicit error taxonomy.
-- `src/core/engine/EngineTypes.ts` defines internal resolved types and progress
-  phase names.
+- [`src/core/types/Solution.ts`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/types/Solution.ts),
+  [`src/core/types/Violation.ts`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/types/Violation.ts),
+  and
+  [`src/core/types/ProgressStats.ts`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/types/ProgressStats.ts)
+  define runtime result shapes.
+- [`src/core/interfaces/Constraint.ts`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/interfaces/Constraint.ts),
+  [`src/core/interfaces/MoveGenerator.ts`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/interfaces/MoveGenerator.ts),
+  and [`src/core/interfaces/SAConfig.ts`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/interfaces/SAConfig.ts)
+  define integration contracts.
+- [`src/core/errors.ts`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/errors.ts)
+  defines the explicit error taxonomy.
+- [`src/core/engine/EngineTypes.ts`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/engine/EngineTypes.ts)
+  defines internal resolved types and phase names.
 
 ## Solve pipeline
 
@@ -109,9 +235,9 @@ Before solving begins, the constructor performs static setup.
 
 ```text
 constructor(...)
-  -> validateSolverInputs(...)
+  -> validateSolverInputs(...) in ConfigValidator
   -> partition constraints into hard and soft sets
-  -> mergeConfigWithDefaults(...)
+  -> mergeConfigWithDefaults(...) in ConfigValidator
   -> create Logger
   -> create TabuMemory
   -> initialize operatorStats
@@ -200,8 +326,11 @@ in configuration.
 
 The architecture separates:
 
-- validation, handled by `validateSolverInputs(...)`, from
-- default resolution, handled by `mergeConfigWithDefaults(...)`.
+- validation, handled by
+  [`validateSolverInputs(...)`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/validation/ConfigValidator.ts#L18),
+  from
+- default resolution, handled by
+  [`mergeConfigWithDefaults(...)`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/validation/ConfigValidator.ts#L145).
 
 This split avoids mixing user-facing diagnostics with internal convenience.
 
@@ -211,7 +340,8 @@ Fitness evaluation and violation reporting are related but distinct subsystems.
 
 ### Fitness path
 
-`calculateFitnessAndViolations(...)` computes two things:
+[`calculateFitnessAndViolations(...)`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/SimulatedAnnealing.ts#L752)
+computes two things:
 
 - scalar `fitness`,
 - integer `hardViolations`.
@@ -222,8 +352,8 @@ violation count. For soft constraints, it aggregates only weighted penalty.
 
 ### Violation-reporting path
 
-`getViolations(...)` constructs `Violation[]` records for both hard and soft
-constraints.
+[`getViolations(...)`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/SimulatedAnnealing.ts#L942)
+constructs `Violation[]` records for both hard and soft constraints.
 
 The architectural split is intentional:
 
@@ -293,7 +423,8 @@ no warm-up stage followed by a pure exploitation stage.
 ## Hard-constraint hinting architecture
 
 One of the more domain-aware parts of the architecture is the hard-fix hinting
-system in `generateNeighbor(...)`.
+system in
+[`generateNeighbor(...)`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/SimulatedAnnealing.ts#L784).
 
 ### Cache design
 
@@ -350,7 +481,8 @@ Observability is built into the runtime rather than layered on afterward.
 
 ### Logger design
 
-`Logger` is synchronous and intentionally simple.
+[`Logger`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/telemetry/Logger.ts)
+is synchronous and intentionally simple.
 
 - it sanitizes nested data,
 - it redacts sensitive keys such as `password`, `secret`, `token`, and related
@@ -363,8 +495,8 @@ async I/O. Its design favors predictability over maximal throughput.
 
 ### Progress reporter design
 
-`ProgressReporter` maintains mutable internal counters independent of solver
-state objects.
+[`ProgressReporter`](https://github.com/albertabayor/timetable-sa/blob/main/src/core/telemetry/ProgressReporter.ts)
+maintains mutable internal counters independent of solver state objects.
 
 This subsystem tracks:
 

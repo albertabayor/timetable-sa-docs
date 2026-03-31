@@ -15,7 +15,17 @@ export default defineConfig({
       prerender: {
         enabled: true,
       },
-      pages: [{ path: '/api/search' }],
+      pages: [
+        { path: '/api/search' },
+        {
+          path: '/llms.txt',
+          prerender: { enabled: true, outputPath: '/llms.txt' },
+        },
+        {
+          path: '/llms-full.txt',
+          prerender: { enabled: true, outputPath: '/llms-full.txt' },
+        },
+      ],
     }),
     react(),
   ],

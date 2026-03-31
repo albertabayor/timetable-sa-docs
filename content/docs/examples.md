@@ -85,6 +85,44 @@ Use this example to understand the minimum pieces you need:
 - a `cloneState` function,
 - an awaited call to `solve()`.
 
+## Advanced Phase 1.5 example
+
+Once the minimal flow works, you can tune intensification more explicitly. This
+example keeps the same generic shape, but it adds targeted Phase 1.5 controls
+and reads the diagnostics payload after the solve.
+
+```ts
+const advancedConfig: SAConfig<State> = {
+  initialTemperature: 100,
+  minTemperature: 0.01,
+  coolingRate: 0.995,
+  maxIterations: 10000,
+  hardConstraintWeight: 1000,
+  cloneState: (state) => ({ values: [...state.values] }),
+  enableIntensification: true,
+  intensificationStartTemperatureMode: 'phase1-end',
+  intensificationTargetedOperatorNames: ['Adjust one value'],
+  intensificationTargetedSelectionRate: 0.8,
+  intensificationBudgetFractionOfMaxIterations: 0.2,
+  intensificationEarlyStopNoBestImproveIterations: 200,
+};
+
+const advancedSolver = new SimulatedAnnealing(
+  { values: [8, 7, 9] },
+  constraints,
+  moves,
+  advancedConfig
+);
+
+const advancedResult = await advancedSolver.solve();
+
+console.log(advancedResult.diagnostics?.phaseTimings.totalRuntimeMs);
+console.log(advancedResult.diagnostics?.intensification.phase15EndedByBudget);
+```
+
+This pattern is useful when you need to benchmark or debug why Phase 1.5 did
+or did not improve hard feasibility.
+
 ## Next steps
 
 After this example works, continue with:

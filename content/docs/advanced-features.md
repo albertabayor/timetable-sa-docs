@@ -261,14 +261,16 @@ otherwise, the full applicable set is used.
 ### Intensification targeting heuristics
 
 Phase 1.5 does not use the full `OperatorSelectionPolicy` selection path. It
-first filters applicable operators, then chooses uniformly at random from:
+first filters applicable operators, then resolves an optional targeted set
+based on `config.intensificationTargetedOperatorNames`.
 
-- targeted generators whose names include `fix`, `swap`, or `change` with 70
-  percent probability when any exist,
-- otherwise all applicable generators.
+- Matching uses a case-insensitive exact operator-name comparison.
+- If the targeted set is non-empty, it is chosen with probability
+  `intensificationTargetedSelectionRate`.
+- Otherwise, the solver chooses from all applicable generators.
 
-This makes intensification more deterministic in spirit than the main phase
-loop, even though it still relies on `Math.random()`.
+If you do not provide `intensificationTargetedOperatorNames`, Phase 1.5 falls
+back to the full applicable generator set.
 
 ## Reheating
 
@@ -310,8 +312,19 @@ For each attempt:
 
 1. Reset the working state to the current `bestState`.
 2. Reset `currentFitness` and `currentHardViolations` to the current best.
-3. Set `intensificationTemp = initialTemperature`.
-4. Run up to `intensificationIterations` iterations.
+3. Resolve the start temperature with
+   `resolveIntensificationStartTemperature(phase1EndTemperature)`.
+4. Cap the total Phase 1.5 work by both `intensificationIterations` and the
+   remaining global Phase 1.5 budget.
+5. Run until one of these conditions wins:
+   a local success, a per-attempt early stop, an exhausted attempt budget, or
+   an exhausted global Phase 1.5 budget.
+
+By default, the start temperature is derived from the Phase 1 terminal
+temperature and then scaled and capped by
+`intensificationStartTempMultiplier` and
+`intensificationStartTempCapRatio`. If you need the legacy restart behavior,
+set `intensificationStartTemperatureMode: 'initial-reset'`.
 
 ### Acceptance rules inside intensification
 
@@ -335,7 +348,7 @@ If `stagnationCounter >= intensificationStagnationLimit`, the engine reheats the
 local search by setting:
 
 ```text
-intensificationTemp = initialTemperature * 0.5
+intensificationTemp = max(minTemperature, intensificationTemp * 0.5)
 stagnationCounter = 0
 ```
 
@@ -347,6 +360,30 @@ intensificationTemp *= 0.999
 
 This means intensification uses its own cooling schedule and its own local
 reheating rule.
+
+### Budget and early-stop rules
+
+Phase 1.5 is not only bounded per attempt. The implementation also applies a
+global budget cap and an explicit early-stop rule.
+
+- The global budget is
+  `floor(maxIterations * intensificationBudgetFractionOfMaxIterations)`.
+- `remainingBudget` is decremented on every Phase 1.5 iteration.
+- If `noBestImproveCounter` reaches
+  `intensificationEarlyStopNoBestImproveIterations`, the current attempt ends
+  even if its local iteration budget is not exhausted.
+- If the global budget reaches zero while hard violations remain,
+  `phase15EndedByBudget` is recorded in diagnostics.
+
+### Tabu behavior inside intensification
+
+Phase 1.5 can now apply tabu screening before acceptance.
+
+- Tabu gating is active only when both `intensificationUseTabu` and
+  `tabuSearchEnabled` are true.
+- Tabu skips increment `phase15TabuSkips` and the general tabu hit counter.
+- If Phase 1.5 accepts a move while tabu is active, the solver adds the
+  previous current-state signature to the tabu list.
 
 ## Progress and telemetry
 
@@ -383,6 +420,21 @@ If `onProgress` throws or rejects:
 - solving continues.
 
 The callback is therefore observational, not mission critical.
+
+### Diagnostics payload
+
+The solver also records additive diagnostics that are returned in two places:
+`solution.diagnostics` and `solver.getDiagnostics()`.
+
+- `phaseTimings` measures elapsed runtime for Phase 1, Phase 1.5, Phase 2, and
+  the total solve.
+- `feasibility` records the hard-violation trajectory and the first-feasible
+  milestone when one exists.
+- `intensification` records attempts, accepted-move categories, tabu skips,
+  local reheats, budget usage, and stop reasons.
+
+These diagnostics are the most direct way to understand why Phase 1.5 did not
+run, ran but stalled, or ran and ended by budget or early stop.
 
 ## Concurrency model
 

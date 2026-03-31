@@ -74,6 +74,65 @@ onProgressMode: 'await' | 'fire-and-forget'
 Also note that the callback receives `state = null` in the current
 implementation for performance reasons.
 
+## Migrate Phase 1.5 start-temperature assumptions
+
+The current branch no longer defaults to restarting Phase 1.5 from
+`initialTemperature`.
+
+Instead, the default behavior is:
+
+- `intensificationStartTemperatureMode: 'phase1-end'`,
+- optional scaling through `intensificationStartTempMultiplier`,
+- optional capping through `intensificationStartTempCapRatio`.
+
+If your older tuning assumed the legacy restart behavior, make it explicit.
+
+```ts
+intensificationStartTemperatureMode: 'initial-reset'
+```
+
+This preserves the old mental model of each intensification attempt beginning
+from the configured `initialTemperature`.
+
+## Migrate operator targeting assumptions
+
+Older mental models often described Phase 1.5 as preferring operators whose
+names merely looked like repair operators. The branch API now exposes an
+explicit targeting surface.
+
+```ts
+intensificationTargetedOperatorNames: ['Repair hard conflict']
+```
+
+Matching is case-insensitive, but it is still an exact name match. If you want
+deterministic targeting, rely on this field instead of assuming the solver will
+infer the right operators from substrings alone.
+
+## Migrate Phase 1.5 budget assumptions
+
+The current implementation caps total Phase 1.5 work and can stop an attempt
+early when the global best hard-violation objective stalls.
+
+```ts
+intensificationBudgetFractionOfMaxIterations: 0.25,
+intensificationEarlyStopNoBestImproveIterations: 800,
+```
+
+This means `intensificationIterations * maxIntensificationAttempts` is no
+longer the whole story. The true upper bound is the smaller of the per-attempt
+settings and the global Phase 1.5 budget.
+
+## Migrate telemetry and benchmarking code
+
+If you previously relied only on logs or `onProgress` to understand solver
+behavior, use the new diagnostics surface for post-run analysis.
+
+- Read `solution.diagnostics` from the solve result.
+- Call `solver.getDiagnostics()` when you want a snapshot copy after the run.
+
+This is the preferred branch-compatible way to inspect timing, first-feasible
+milestones, budget usage, and Phase 1.5 stop reasons.
+
 ## Migrate logging setup
 
 To log to files, set `logging.output` and `logging.filePath` explicitly.

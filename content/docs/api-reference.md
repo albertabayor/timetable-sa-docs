@@ -30,6 +30,10 @@ export type {
   LoggingConfig,
   Solution,
   OperatorStats,
+  SolverDiagnostics,
+  PhaseTimingDiagnostics,
+  FeasibilityDiagnostics,
+  IntensificationDiagnostics,
   Violation,
   ProgressStats,
   OnProgressCallback,
@@ -133,6 +137,18 @@ getStats(): OperatorStats
 
 The method copies the current counters, so callers cannot mutate the solver's
 internal state through the returned object.
+
+### `getDiagnostics()`
+
+`getDiagnostics()` returns a snapshot of the solver diagnostics collected during
+the most recent `solve()` run.
+
+```ts
+getDiagnostics(): SolverDiagnostics
+```
+
+The returned object is a shallow snapshot of the diagnostics groups. Mutating
+the returned value does not mutate internal solver state.
 
 ## `Constraint<TState>`
 
@@ -263,12 +279,13 @@ The effective contract is as follows:
 
 ### Selection implications
 
-Move generator names are not only labels. In Phase 1 and Phase 1.5, the engine
-contains name-based heuristics that prefer generators whose names include terms
-such as `fix`, `swap`, `change`, `friday`, `lecturer`, `exclusive`, or
-`capacity`.
+Move generator names are not only labels. In Phase 1, the engine still contains
+name-aware heuristics that can prefer generators whose names include terms such
+as `fix`, `swap`, `friday`, `lecturer`, `exclusive`, or `capacity`.
 
-This means operator naming has a small but real effect on search behavior.
+Phase 1.5 is more explicit in the current branch. If you provide
+`intensificationTargetedOperatorNames`, the solver uses those exact names with a
+case-insensitive comparison instead of relying on substring heuristics.
 
 ## `SAConfig<TState>`
 
@@ -294,6 +311,14 @@ interface SAConfig<TState> {
   intensificationIterations?: number;
   maxIntensificationAttempts?: number;
   intensificationStagnationLimit?: number;
+  intensificationStartTemperatureMode?: 'phase1-end' | 'initial-reset';
+  intensificationStartTempMultiplier?: number;
+  intensificationStartTempCapRatio?: number;
+  intensificationUseTabu?: boolean;
+  intensificationTargetedOperatorNames?: string[];
+  intensificationTargetedSelectionRate?: number;
+  intensificationEarlyStopNoBestImproveIterations?: number;
+  intensificationBudgetFractionOfMaxIterations?: number;
   getStateSignature?: (state: TState) => string;
   operatorSelectionMode?: 'hybrid' | 'roulette-wheel';
   logging?: LoggingConfig;
@@ -334,6 +359,14 @@ The table below reflects `mergeConfigWithDefaults(...)` exactly.
 | `intensificationIterations` | `2000` |
 | `maxIntensificationAttempts` | `3` |
 | `intensificationStagnationLimit` | `300` |
+| `intensificationStartTemperatureMode` | `'phase1-end'` |
+| `intensificationStartTempMultiplier` | `1.0` |
+| `intensificationStartTempCapRatio` | `1.0` |
+| `intensificationUseTabu` | `true` |
+| `intensificationTargetedOperatorNames` | `[]` |
+| `intensificationTargetedSelectionRate` | `0.7` |
+| `intensificationEarlyStopNoBestImproveIterations` | `800` |
+| `intensificationBudgetFractionOfMaxIterations` | `0.25` |
 | `onProgressMode` | `'await'` |
 | `logging.enabled` | `true` |
 | `logging.level` | `'info'` |
@@ -353,8 +386,40 @@ The validator applies these rules when the corresponding field is provided:
 - `intensificationIterations`: positive integer.
 - `maxIntensificationAttempts`: positive integer.
 - `intensificationStagnationLimit`: positive integer.
+- `intensificationStartTemperatureMode`: `'phase1-end'` or
+  `'initial-reset'`.
+- `intensificationStartTempMultiplier`: finite number greater than `0`.
+- `intensificationStartTempCapRatio`: finite number greater than `0`.
+- `intensificationTargetedOperatorNames`: array of non-empty strings.
+- `intensificationTargetedSelectionRate`: probability in the closed interval
+  `[0, 1]`.
+- `intensificationEarlyStopNoBestImproveIterations`: positive integer.
+- `intensificationBudgetFractionOfMaxIterations`: finite number greater than
+  `0` and less than or equal to `1`.
 - `logging.logInterval`: positive integer.
 - soft `weight`: finite number greater than or equal to `0`.
+
+### Intensification-specific semantics
+
+The new Phase 1.5 fields have runtime meaning beyond their types.
+
+- `intensificationStartTemperatureMode` controls whether an intensification
+  attempt starts from the Phase 1 terminal temperature or resets to
+  `initialTemperature`.
+- `intensificationStartTempMultiplier` scales the Phase 1 terminal temperature
+  before the cap is applied.
+- `intensificationStartTempCapRatio` caps the scaled start temperature at
+  `initialTemperature * ratio`.
+- `intensificationUseTabu` enables tabu gating inside Phase 1.5 when
+  `tabuSearchEnabled` is also true.
+- `intensificationTargetedOperatorNames` matches operator names with a
+  case-insensitive exact comparison.
+- `intensificationTargetedSelectionRate` controls how often the solver chooses
+  from the targeted set when that set is non-empty.
+- `intensificationEarlyStopNoBestImproveIterations` ends an intensification
+  attempt early when the global best hard-violation objective does not improve.
+- `intensificationBudgetFractionOfMaxIterations` caps total Phase 1.5
+  iterations at `floor(maxIterations * fraction)`.
 
 ## `LoggingConfig`
 
@@ -418,6 +483,7 @@ interface Solution<TState> {
   finalTemperature: number;
   violations: Violation[];
   operatorStats: OperatorStats;
+  diagnostics?: SolverDiagnostics;
 }
 ```
 
@@ -437,6 +503,7 @@ explicit.
 | `finalTemperature` | Temperature value at the time solving stopped. |
 | `violations` | Detailed violation objects generated from constraints. |
 | `operatorStats` | Final per-operator attempt, acceptance, and improvement counters. |
+| `diagnostics` | Optional telemetry snapshot for timing, feasibility, and intensification behavior. |
 
 `softViolations` is a count, not a weighted penalty sum.
 
@@ -454,6 +521,88 @@ softPenalty(state) = sum over soft constraints of (1 - score) * weight
 This means `fitness` is not simply `hardViolations * hardConstraintWeight`.
 Hard violations are counted separately for reporting and phase control, while
 the fitness function uses the fractional deficit `1 - score`.
+
+## `SolverDiagnostics`
+
+`SolverDiagnostics` groups the additive telemetry returned by
+`solution.diagnostics` and `solver.getDiagnostics()`.
+
+```ts
+interface SolverDiagnostics {
+  phaseTimings: PhaseTimingDiagnostics;
+  feasibility: FeasibilityDiagnostics;
+  intensification: IntensificationDiagnostics;
+}
+```
+
+The solver resets this structure at the start of every solve and repopulates it
+throughout the run.
+
+## `PhaseTimingDiagnostics`
+
+`PhaseTimingDiagnostics` captures elapsed wall-clock timing for the major solve
+stages.
+
+```ts
+interface PhaseTimingDiagnostics {
+  phase1Ms: number;
+  phase15Ms: number;
+  phase2Ms: number;
+  totalRuntimeMs: number;
+}
+```
+
+These values are non-negative and are measured with `performance.now()`.
+
+## `FeasibilityDiagnostics`
+
+`FeasibilityDiagnostics` captures hard-violation progress across the solve.
+
+```ts
+interface FeasibilityDiagnostics {
+  initialHardViolations: number;
+  bestHardViolationsAfterPhase1: number;
+  bestHardViolationsAfterPhase15: number;
+  bestHardViolationsFinal: number;
+  timeToFirstFeasibleMs: number | null;
+  iterationToFirstFeasible: number | null;
+}
+```
+
+`timeToFirstFeasibleMs` and `iterationToFirstFeasible` remain `null` when the
+solver never reaches zero hard violations.
+
+## `IntensificationDiagnostics`
+
+`IntensificationDiagnostics` captures Phase 1.5 behavior in detail.
+
+```ts
+interface IntensificationDiagnostics {
+  triggered: boolean;
+  attemptsRun: number;
+  iterationsRun: number;
+  phase15BudgetLimitIterations: number;
+  phase15BudgetUsedIterations: number;
+  acceptedMoves: number;
+  hardImprovingAcceptedMoves: number;
+  equalHardAcceptedMoves: number;
+  hardWorseningAcceptedMoves: number;
+  phase15TabuSkips: number;
+  localReheats: number;
+  bestUpdates: number;
+  phase15EndedByBudget: boolean;
+  phase15EndedByEarlyStop: boolean;
+  phase15StartHard: number | null;
+  phase15WorstCurrentHard: number | null;
+  phase15EndCurrentHard: number | null;
+  phase15BestHardDelta: number | null;
+}
+```
+
+This structure is useful when you need to distinguish between three common
+cases: Phase 1.5 never triggered, it triggered but ended by budget, or it
+triggered but ended early because the global best hard-violation objective
+stalled.
 
 ## `Violation`
 
@@ -597,6 +746,9 @@ const config: SAConfig<MyState> = {
   aspirationEnabled: true,
   enableIntensification: true,
   intensificationIterations: 2000,
+  intensificationStartTemperatureMode: 'phase1-end',
+  intensificationTargetedOperatorNames: ['Repair hard conflict'],
+  intensificationBudgetFractionOfMaxIterations: 0.25,
   logging: {
     enabled: true,
     level: 'info',
@@ -615,6 +767,11 @@ const config: SAConfig<MyState> = {
   },
   onProgressMode: 'await',
 };
+
+const solver = new SimulatedAnnealing(initialState, constraints, moves, config);
+const solution = await solver.solve();
+
+console.log(solution.diagnostics?.intensification.phase15EndedByBudget);
 ```
 
 ## Next steps

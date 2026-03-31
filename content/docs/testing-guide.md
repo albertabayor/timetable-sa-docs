@@ -476,7 +476,8 @@ describe('SimulatedAnnealing Integration', () => {
     const progressCalls: number[] = [];
     
     const solver = createSolver({
-      onProgress: (stats) => {
+      onProgress: (iteration, currentCost, temperature, state, stats) => {
+        expect(state).toBeNull();
         progressCalls.push(stats.iteration);
       },
       onProgressMode: 'fire-and-forget'
@@ -522,6 +523,22 @@ describe('SimulatedAnnealing Integration', () => {
       expect(data.successRate).toBeLessThanOrEqual(1);
     }
   });
+
+  it('should expose diagnostics snapshots', async () => {
+    const solver = createSolver({
+      maxIterations: 1000,
+      intensificationBudgetFractionOfMaxIterations: 0.1,
+      intensificationEarlyStopNoBestImproveIterations: 10
+    });
+
+    const solution = await solver.solve();
+    const diagnostics = solver.getDiagnostics();
+
+    expect(solution.diagnostics).toBeDefined();
+    expect(diagnostics.phaseTimings.totalRuntimeMs).toBeGreaterThanOrEqual(0);
+    expect(diagnostics.intensification.phase15BudgetUsedIterations)
+      .toBeLessThanOrEqual(diagnostics.intensification.phase15BudgetLimitIterations);
+  });
 });
 ```
 
@@ -557,6 +574,24 @@ describe('Configuration Validation', () => {
     expect(() => {
       new SimulatedAnnealing(state, constraints, [], validConfig);
     }).not.toThrow();
+  });
+
+  it('rejects invalid intensification budget fraction', () => {
+    expect(() => {
+      new SimulatedAnnealing(state, constraints, moves, {
+        ...validConfig,
+        intensificationBudgetFractionOfMaxIterations: 0
+      });
+    }).toThrow();
+  });
+
+  it('rejects invalid intensification targeted selection rate', () => {
+    expect(() => {
+      new SimulatedAnnealing(state, constraints, moves, {
+        ...validConfig,
+        intensificationTargetedSelectionRate: 1.5
+      });
+    }).toThrow();
   });
 
   it('currently does not reject duplicate constraint names', () => {

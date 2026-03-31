@@ -18,7 +18,8 @@ this documentation prioritizes:
 - **Completeness**: Every public API, configuration option, and internal mechanism documented
 - **Precision**: Technical accuracy with mathematical formalism where appropriate
 - **Practicality**: Working examples, configuration profiles, and troubleshooting guidance
-- **Extensibility**: Clear extension points for custom constraints, move generators, and policies
+- **Extensibility**: Clear extension points for custom constraints, move
+  generators, policies, and diagnostics-driven tuning
 
 ## Documentation Workflows
 
@@ -40,7 +41,7 @@ Get started with the fundamentals and build your first working optimizer.
 Tune solver behavior for production workloads and specific problem domains.
 
 - **[Configuration Guide](/docs/configuration)** - Complete configuration reference with tuning strategies
-- **[Algorithm and Runtime Behavior](/docs/advanced-features)** - Deep dive into phase lifecycles, acceptance rules, and reheating
+- **[Algorithm and Runtime Behavior](/docs/advanced-features)** - Deep dive into phase lifecycles, acceptance rules, diagnostics, and reheating
 - **[Examples](/docs/examples)** - Domain-specific implementations and patterns
 - **[Testing Guide](/docs/testing-guide)** - Comprehensive testing strategies for constraints, moves, and solver configurations
 
@@ -71,6 +72,7 @@ Understand internals for advanced customization and system integration.
 | Testing implementation | [Testing Guide](/docs/testing-guide) |
 | Debugging issues | [Troubleshooting](/docs/troubleshooting) |
 | Optimizing performance | [Configuration Guide](/docs/configuration) → [Advanced Features](/docs/advanced-features) |
+| Diagnosing solver behavior | [API Reference](/docs/api-reference) → [Troubleshooting](/docs/troubleshooting) |
 | Understanding internals | [Internal Architecture](/docs/architecture) |
 | API details | [API Reference](/docs/api-reference) |
 

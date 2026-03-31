@@ -40,6 +40,14 @@ interface SAConfig<TState> {
   intensificationIterations?: number;
   maxIntensificationAttempts?: number;
   intensificationStagnationLimit?: number;
+  intensificationStartTemperatureMode?: 'phase1-end' | 'initial-reset';
+  intensificationStartTempMultiplier?: number;
+  intensificationStartTempCapRatio?: number;
+  intensificationUseTabu?: boolean;
+  intensificationTargetedOperatorNames?: string[];
+  intensificationTargetedSelectionRate?: number;
+  intensificationEarlyStopNoBestImproveIterations?: number;
+  intensificationBudgetFractionOfMaxIterations?: number;
   getStateSignature?: (state: TState) => string;
   operatorSelectionMode?: 'hybrid' | 'roulette-wheel';
   logging?: LoggingConfig;
@@ -62,7 +70,9 @@ At runtime, the value also acts as a reference scale for:
 
 - the Phase 1 stopping threshold `initialTemperature / 10`,
 - the reheating gate `temperature < initialTemperature / 100`,
-- the restart temperature used in intensification.
+- the cap used by `intensificationStartTempCapRatio`,
+- the fallback Phase 1.5 restart temperature when
+  `intensificationStartTemperatureMode` is `'initial-reset'`.
 
 ### `minTemperature`
 
@@ -133,6 +143,14 @@ The following defaults are applied by `mergeConfigWithDefaults(...)`.
 | `intensificationIterations` | `2000` |
 | `maxIntensificationAttempts` | `3` |
 | `intensificationStagnationLimit` | `300` |
+| `intensificationStartTemperatureMode` | `'phase1-end'` |
+| `intensificationStartTempMultiplier` | `1.0` |
+| `intensificationStartTempCapRatio` | `1.0` |
+| `intensificationUseTabu` | `true` |
+| `intensificationTargetedOperatorNames` | `[]` |
+| `intensificationTargetedSelectionRate` | `0.7` |
+| `intensificationEarlyStopNoBestImproveIterations` | `800` |
+| `intensificationBudgetFractionOfMaxIterations` | `0.25` |
 | `onProgressMode` | `'await'` |
 | `logging.enabled` | `true` |
 | `logging.level` | `'info'` |
@@ -183,6 +201,15 @@ If present, these fields must satisfy the listed rules:
 - `intensificationIterations`: positive integer,
 - `maxIntensificationAttempts`: positive integer,
 - `intensificationStagnationLimit`: positive integer,
+- `intensificationStartTemperatureMode`: `'phase1-end'` or
+  `'initial-reset'`,
+- `intensificationStartTempMultiplier`: finite number greater than `0`,
+- `intensificationStartTempCapRatio`: finite number greater than `0`,
+- `intensificationTargetedOperatorNames`: array of non-empty strings,
+- `intensificationTargetedSelectionRate`: probability in `[0, 1]`,
+- `intensificationEarlyStopNoBestImproveIterations`: positive integer,
+- `intensificationBudgetFractionOfMaxIterations`: finite number greater than
+  `0` and less than or equal to `1`,
 - `logging.logInterval`: positive integer.
 
 ## Core annealing tuning
@@ -293,6 +320,14 @@ zero hard violations.
   intensificationIterations: 2000,
   maxIntensificationAttempts: 3,
   intensificationStagnationLimit: 300,
+  intensificationStartTemperatureMode: 'phase1-end',
+  intensificationStartTempMultiplier: 1.0,
+  intensificationStartTempCapRatio: 1.0,
+  intensificationUseTabu: true,
+  intensificationTargetedOperatorNames: [],
+  intensificationTargetedSelectionRate: 0.7,
+  intensificationEarlyStopNoBestImproveIterations: 800,
+  intensificationBudgetFractionOfMaxIterations: 0.25,
 }
 ```
 
@@ -301,11 +336,24 @@ zero hard violations.
 Each intensification attempt:
 
 - restarts from the current best state,
-- starts with `initialTemperature`,
-- cools with a fixed multiplier `0.999`,
-- reheats locally to `initialTemperature * 0.5` when stagnation exceeds the
-  configured limit,
-- prefers move generators with names containing `fix`, `swap`, or `change`.
+- derives its start temperature from Phase 1 by default,
+- may reset to `initialTemperature` only when
+  `intensificationStartTemperatureMode` is `'initial-reset'`,
+- caps the Phase 1 derived start temperature at
+  `initialTemperature * intensificationStartTempCapRatio`,
+- uses explicit targeted operator names when you provide them,
+- optionally applies tabu gating when `intensificationUseTabu` and
+  `tabuSearchEnabled` are both true,
+- can end early when the global best hard-violation objective does not improve
+  for `intensificationEarlyStopNoBestImproveIterations`,
+- shares a global Phase 1.5 iteration budget of
+  `floor(maxIterations * intensificationBudgetFractionOfMaxIterations)`.
+
+Inside an attempt, the local temperature still cools by `0.999` per iteration
+and reheats by halving the current intensification temperature when stagnation
+reaches `intensificationStagnationLimit`. What changed in this branch is the
+starting-point policy, the targeted operator controls, the optional tabu gate,
+and the budget and early-stop semantics.
 
 ### Tuning guidance
 
@@ -314,6 +362,14 @@ Each intensification attempt:
   rarely enough.
 - Reduce `intensificationStagnationLimit` when local search gets trapped for too
   long.
+- Use `intensificationStartTemperatureMode: 'initial-reset'` when you want the
+  legacy restart behavior and broader exploration at the start of each attempt.
+- Populate `intensificationTargetedOperatorNames` when you know exactly which
+  operators are intended to repair remaining hard conflicts.
+- Increase `intensificationBudgetFractionOfMaxIterations` when Phase 1.5 ends
+  by budget before it has a realistic chance to improve feasibility.
+- Disable `intensificationUseTabu` when Phase 1.5 becomes too conservative and
+  keeps skipping the repair operators you actually want to explore.
 
 ## Operator selection configuration
 
@@ -430,6 +486,11 @@ const feasibilityConfig: SAConfig<MyState> = {
   enableIntensification: true,
   intensificationIterations: 4000,
   maxIntensificationAttempts: 4,
+  intensificationStartTemperatureMode: 'phase1-end',
+  intensificationUseTabu: true,
+  intensificationTargetedOperatorNames: ['Repair Hard Conflict'],
+  intensificationTargetedSelectionRate: 0.8,
+  intensificationBudgetFractionOfMaxIterations: 0.35,
 };
 ```
 

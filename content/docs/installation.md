@@ -85,6 +85,8 @@ Several operational details are useful to know before integration.
 - `solve()` is asynchronous and returns `Promise<Solution<TState>>`.
 - if you use `onProgress`, the default `onProgressMode` is `'await'`, so slow
   callbacks can reduce throughput,
+- the solve result can include `solution.diagnostics`, and you can also inspect
+  the same grouped telemetry through `solver.getDiagnostics()` after the run,
 - file logging with `logging.output: 'file' | 'both'` creates parent
   directories automatically,
 - move generators receive a solver-provided clone, so they may mutate the state

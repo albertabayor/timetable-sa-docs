@@ -58,8 +58,8 @@ The public API is intentionally compact.
 
 - `SimulatedAnnealing<TState>` as the main solver class,
 - extension interfaces such as `Constraint`, `MoveGenerator`, and `SAConfig`,
-- result and telemetry types such as `Solution`, `Violation`, and
-  `ProgressStats`,
+- result and telemetry types such as `Solution`, `Violation`,
+  `ProgressStats`, and solver diagnostics types,
 - typed runtime errors such as `SAConfigError`,
   `ConstraintValidationError`, and `SolveConcurrencyError`.
 
@@ -82,7 +82,8 @@ domains without embedding a specific scheduling ontology.
 
 - a local-search optimizer that is easy to embed in a TypeScript codebase,
 - explicit control over constraint logic and move design,
-- iterative diagnostics such as progress callbacks and operator statistics,
+- iterative diagnostics such as progress callbacks, operator statistics, and
+  solver diagnostics,
 - a middle ground between simple hill climbing and heavyweight solver stacks.
 
 ## Next steps

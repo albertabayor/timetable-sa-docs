@@ -23,7 +23,8 @@ The design has four noteworthy properties:
   `MoveGenerator<TState>`,
 - eager validation of configuration and shape contracts,
 - online adaptation of move-operator selection,
-- operational observability through logging and progress callbacks.
+- operational observability through logging, progress callbacks, and solver
+  diagnostics.
 
 ## Module map
 
@@ -45,6 +46,7 @@ Its responsibilities include:
 - managing tabu screening,
 - collecting operator statistics,
 - emitting logs and progress callbacks,
+- collecting diagnostics snapshots for timing, feasibility, and intensification,
 - packaging the final `Solution<TState>`.
 
 ### Validation layer
@@ -206,6 +208,19 @@ try {
   onError(error);
 }
 ```
+
+### Diagnostics data flow
+
+The current branch also records additive diagnostics in the orchestration layer
+itself.
+
+- runtime reset initializes the diagnostics structure at the start of `solve()`,
+- phase timing is measured with `performance.now()`,
+- feasibility milestones record the initial hard count, best hard counts after
+  each phase, and the first-feasible milestone when one exists,
+- intensification records attempts, accepted-move categories, tabu skips, local
+  reheats, budget usage, and stop reasons,
+- `getDiagnostics()` returns a snapshot copy of the grouped diagnostics object.
 
 ### Type and error layer
 
@@ -385,6 +400,14 @@ acceptance logic, and stagnation counter.
 
 This is architecturally important because intensification is not simply a flag
 inside the main loop. It is a standalone procedure with restart semantics.
+
+In the current branch, that procedure also has:
+
+- an explicit global Phase 1.5 budget cap,
+- an optional exact-name targeted operator set,
+- optional tabu gating inside Phase 1.5,
+- a per-attempt early-stop rule based on the global best hard-violation
+  objective.
 
 ### Phase 2 as constrained refinement engine
 

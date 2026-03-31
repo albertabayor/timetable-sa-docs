@@ -203,6 +203,55 @@ expected.
 - inspect whether any operator attempts are recorded in `operatorStats`,
 - verify that move generators remain applicable across the full state space.
 
+## Phase 1.5 ends too quickly
+
+If intensification appears to trigger and then stop almost immediately, the
+most common causes are the explicit Phase 1.5 budget cap or the per-attempt
+early-stop threshold.
+
+### How to investigate
+
+Inspect either `solution.diagnostics.intensification` or
+`solver.getDiagnostics().intensification` after the run.
+
+- `phase15BudgetLimitIterations` shows the global Phase 1.5 budget.
+- `phase15BudgetUsedIterations` shows how much of that budget was consumed.
+- `phase15EndedByBudget` tells you the phase exhausted the budget.
+- `phase15EndedByEarlyStop` tells you the current attempt ended because the
+  global best hard-violation objective stalled.
+
+### How to fix it
+
+- increase `intensificationBudgetFractionOfMaxIterations` when the phase ends by
+  budget too early,
+- increase `intensificationEarlyStopNoBestImproveIterations` when the search
+  needs more patience,
+- increase `maxIterations` if the Phase 1.5 budget is too small because the
+  global run budget itself is too small.
+
+## Intensification does not use the operators you expect
+
+If Phase 1.5 keeps choosing broad exploratory moves instead of the repair
+operators you intended, verify the explicit targeting configuration first.
+
+### Why it happens
+
+The branch implementation uses `intensificationTargetedOperatorNames` as a
+case-insensitive exact-name match. If the names do not match, the targeted set
+is empty and Phase 1.5 falls back to all applicable generators.
+
+Tabu gating can also make a good operator appear inactive if its candidates are
+being skipped before acceptance.
+
+### How to fix it
+
+- compare your configured names against `moveGenerator.name` exactly,
+- increase `intensificationTargetedSelectionRate` if the targeted set exists but
+  is chosen too rarely,
+- inspect `phase15TabuSkips` in diagnostics,
+- disable `intensificationUseTabu` temporarily when Phase 1.5 becomes too
+  conservative during hard-repair search.
+
 ## Poor convergence or high variance
 
 High variance across runs is expected to some degree because the solver uses

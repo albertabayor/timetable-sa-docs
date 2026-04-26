@@ -12,14 +12,15 @@ enforced, and how each setting influences runtime behavior.
 
 ## Configuration model
 
-`SAConfig<TState>` combines six categories of settings:
+`SAConfig<TState>` combines seven categories of settings:
 
 - core annealing parameters,
 - state cloning,
 - reheating,
 - tabu search,
 - intensification,
-- telemetry and operator selection.
+- telemetry,
+- cancellation and operator selection.
 
 ```ts
 interface SAConfig<TState> {
@@ -53,6 +54,7 @@ interface SAConfig<TState> {
   logging?: LoggingConfig;
   onProgress?: OnProgressCallback<TState>;
   onProgressMode?: 'await' | 'fire-and-forget';
+  cancelSignal?: CancellationSignal;
 }
 ```
 
@@ -151,6 +153,7 @@ The following defaults are applied by `mergeConfigWithDefaults(...)`.
 | `intensificationTargetedSelectionRate` | `0.7` |
 | `intensificationEarlyStopNoBestImproveIterations` | `800` |
 | `intensificationBudgetFractionOfMaxIterations` | `0.25` |
+| `cancelSignal` | `undefined` |
 | `onProgressMode` | `'await'` |
 | `logging.enabled` | `true` |
 | `logging.level` | `'info'` |
@@ -188,6 +191,55 @@ Each move generator must satisfy these checks:
 
 As with constraints, the constructor validates shape but does not require the
 array to be non-empty.
+
+### Cancellation-signal validation
+
+`cancelSignal` is optional. When provided, it must be an object with an
+`aborted` boolean property.
+
+The validator intentionally does not require DOM-specific `AbortSignal`
+methods. This means an `AbortController.signal` works, but a small structural
+object also works in Node-only code.
+
+```ts
+const signal = { aborted: false };
+
+const config: SAConfig<MyState> = {
+  // required fields omitted
+  cancelSignal: signal,
+};
+```
+
+## Cancellation configuration
+
+Use `cancelSignal` when an application workflow needs to stop a long-running
+optimization before it returns a solution.
+
+```ts
+import { SimulatedAnnealing, SolveCancelledError } from 'timetable-sa';
+
+const controller = new AbortController();
+
+const solver = new SimulatedAnnealing(initialState, constraints, moves, {
+  ...config,
+  cancelSignal: controller.signal,
+});
+
+try {
+  const solution = await solver.solve();
+} catch (error) {
+  if (error instanceof SolveCancelledError) {
+    // Treat this as a user-requested cancellation.
+  } else {
+    throw error;
+  }
+}
+```
+
+The solver checks cancellation before and during each optimization phase, after
+awaited progress callbacks, and before final solution creation. A cancelled run
+rejects with `SolveCancelledError`, resets the internal `isSolving` guard, and
+does not create a final `Solution`.
 
 ### Optional numeric validation
 
@@ -437,6 +489,10 @@ monitoring, and experimentation.
 - The callback may return `void` or `Promise<void>`.
 - `state` is intentionally `null` in every invocation.
 - Callback failures are caught and logged, not propagated.
+- Callback failures do not cancel the solver. Use `cancelSignal` for
+  cancellation.
+- In `'fire-and-forget'` mode, a callback that already started may still finish
+  after cancellation, so guard external writes with your own signal.
 
 ### Choosing a mode
 

@@ -59,9 +59,10 @@ The public API is intentionally compact.
 - `SimulatedAnnealing<TState>` as the main solver class,
 - extension interfaces such as `Constraint`, `MoveGenerator`, and `SAConfig`,
 - result and telemetry types such as `Solution`, `Violation`,
-  `ProgressStats`, and solver diagnostics types,
+  `ProgressStats`, `CancellationSignal`, and solver diagnostics types,
 - typed runtime errors such as `SAConfigError`,
-  `ConstraintValidationError`, and `SolveConcurrencyError`.
+  `ConstraintValidationError`, `SolveConcurrencyError`, and
+  `SolveCancelledError`.
 
 ## What the package does not provide
 

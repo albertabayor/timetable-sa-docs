@@ -38,6 +38,35 @@ const [solutionA, solutionB] = await Promise.all([
 ]);
 ```
 
+## `solve()` throws `SolveCancelledError`
+
+This error means the configured cancellation signal was aborted before or
+during the solve.
+
+### Why it happens
+
+`SAConfig.cancelSignal` is checked cooperatively inside the solver loop. When
+the signal's `aborted` property is true, the solver stops, rejects with
+`SolveCancelledError`, resets its internal `isSolving` guard, and does not
+create a final `Solution`.
+
+### How to handle it
+
+Treat this as a terminal cancellation status in your application, not as a
+completed optimization.
+
+```ts
+try {
+  const solution = await solver.solve();
+} catch (error) {
+  if (error instanceof SolveCancelledError) {
+    markOptimizationCancelled();
+  } else {
+    throw error;
+  }
+}
+```
+
 ## `SAConfigError` during construction
 
 `SAConfigError` indicates that the constructor rejected the supplied state,
@@ -51,6 +80,7 @@ constraint list, move generators, or configuration.
 - `coolingRate` is not strictly between `0` and `1`,
 - `maxIterations` is not a positive integer,
 - an optional numeric field violates its integer or range constraint,
+- `cancelSignal` is provided but does not have an `aborted` boolean property,
 - a soft constraint has a negative `weight`.
 
 ### Important non-causes
@@ -159,6 +189,9 @@ This behavior is expected.
 `ProgressReporter` catches callback errors and forwards them to the logger as
 warnings. The optimization loop continues because progress telemetry is treated
 as observational, not correctness-critical.
+
+If the intended behavior is cancellation, throwing from `onProgress` is the
+wrong mechanism. Pass `SAConfig.cancelSignal` and abort that signal instead.
 
 ### How to debug it
 

@@ -421,6 +421,47 @@ If `onProgress` throws or rejects:
 
 The callback is therefore observational, not mission critical.
 
+Throwing from `onProgress` does not cancel the solver. Use
+`SAConfig.cancelSignal` when application code must stop a running optimization.
+
+## Cancellation
+
+Cancellation is cooperative and signal-based. The solver checks
+`config.cancelSignal?.aborted` before and during each optimization phase, after
+awaited progress callbacks, and before final solution creation.
+
+```ts
+import { SimulatedAnnealing, SolveCancelledError } from 'timetable-sa';
+
+const controller = new AbortController();
+
+const solver = new SimulatedAnnealing(initialState, constraints, moves, {
+  ...config,
+  cancelSignal: controller.signal,
+  onProgress: async () => {
+    if (controller.signal.aborted) return;
+    await publishProgress();
+  },
+});
+
+controller.abort();
+
+try {
+  await solver.solve();
+} catch (error) {
+  if (error instanceof SolveCancelledError) {
+    // Handle cancellation without treating it as a failed optimization.
+  } else {
+    throw error;
+  }
+}
+```
+
+When cancellation is detected, `solve()` rejects with `SolveCancelledError`,
+resets the internal `isSolving` guard, and skips final `Solution` creation. In
+`onProgressMode: 'fire-and-forget'`, callbacks that already started may still
+finish, so guard external writes with the same signal.
+
 ### Diagnostics payload
 
 The solver also records additive diagnostics that are returned in two places:

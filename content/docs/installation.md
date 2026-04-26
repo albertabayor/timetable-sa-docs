@@ -10,6 +10,9 @@ TypeScript project. The package is runtime-light, but it assumes you are
 working in a modern JavaScript environment that supports the current Node.js
 ecosystem.
 
+These docs describe the `timetable-sa@3.2.0` public API, including cooperative
+cancellation through `SAConfig.cancelSignal`.
+
 ## Requirements
 
 You need the following baseline environment:
@@ -65,11 +68,12 @@ bun add timetable-sa
 
 ## Import the public API
 
-After installation, import the solver and the public types you need.
+After installation, import the solver, typed errors, and public types you need.
 
 ```ts
-import { SimulatedAnnealing } from 'timetable-sa';
+import { SimulatedAnnealing, SolveCancelledError } from 'timetable-sa';
 import type {
+  CancellationSignal,
   Constraint,
   MoveGenerator,
   SAConfig,
@@ -83,6 +87,7 @@ import type {
 Several operational details are useful to know before integration.
 
 - `solve()` is asynchronous and returns `Promise<Solution<TState>>`.
+- pass `cancelSignal` when application code must stop a long-running solve,
 - if you use `onProgress`, the default `onProgressMode` is `'await'`, so slow
   callbacks can reduce throughput,
 - the solve result can include `solution.diagnostics`, and you can also inspect

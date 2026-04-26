@@ -12,7 +12,7 @@ default values, and failure modes.
 
 ## Export surface
 
-The package exports one primary class, four error types, and the public type
+The package exports one primary class, five error types, and the public type
 system that you use to model a domain-specific optimization problem.
 
 ```ts
@@ -22,8 +22,10 @@ export {
   SAConfigError,
   ConstraintValidationError,
   SolveConcurrencyError,
+  SolveCancelledError,
 } from './core/index.js';
 export type {
+  CancellationSignal,
   Constraint,
   MoveGenerator,
   SAConfig,
@@ -108,6 +110,8 @@ single solver instance permits only one in-flight `solve()` call.
 
 - If `solve()` is invoked while another invocation is still running on the
   same instance, the solver throws `SolveConcurrencyError`.
+- If `config.cancelSignal?.aborted` is true before or during the run, the
+  solver throws `SolveCancelledError`.
 - The internal `isSolving` guard is always reset in a `finally` block.
 - Runtime state such as tabu memory, progress counters, and operator stats is
   reset at the start of each new solve.
@@ -124,7 +128,11 @@ The implementation in `src/core/SimulatedAnnealing.ts` executes these stages:
    1.5 intensification.
 5. Run Phase 2 to improve overall fitness while forbidding degradation beyond
    the best hard-violation count found so far.
-6. Build and return `Solution<TState>`.
+6. Check cancellation before final solution creation.
+7. Build and return `Solution<TState>`.
+
+If cancellation is detected at any cancellation check, no final
+`Solution<TState>` is created.
 
 ### `getStats()`
 
@@ -324,6 +332,7 @@ interface SAConfig<TState> {
   logging?: LoggingConfig;
   onProgress?: OnProgressCallback<TState>;
   onProgressMode?: 'await' | 'fire-and-forget';
+  cancelSignal?: CancellationSignal;
 }
 ```
 
@@ -368,6 +377,7 @@ The table below reflects `mergeConfigWithDefaults(...)` exactly.
 | `intensificationEarlyStopNoBestImproveIterations` | `800` |
 | `intensificationBudgetFractionOfMaxIterations` | `0.25` |
 | `onProgressMode` | `'await'` |
+| `cancelSignal` | `undefined` |
 | `logging.enabled` | `true` |
 | `logging.level` | `'info'` |
 | `logging.logInterval` | `1000` |
@@ -396,6 +406,7 @@ The validator applies these rules when the corresponding field is provided:
 - `intensificationEarlyStopNoBestImproveIterations`: positive integer.
 - `intensificationBudgetFractionOfMaxIterations`: finite number greater than
   `0` and less than or equal to `1`.
+- `cancelSignal`: object with an `aborted` boolean property.
 - `logging.logInterval`: positive integer.
 - soft `weight`: finite number greater than or equal to `0`.
 
@@ -420,6 +431,47 @@ The new Phase 1.5 fields have runtime meaning beyond their types.
   attempt early when the global best hard-violation objective does not improve.
 - `intensificationBudgetFractionOfMaxIterations` caps total Phase 1.5
   iterations at `floor(maxIterations * fraction)`.
+
+## `CancellationSignal`
+
+`CancellationSignal` is the minimal structural signal accepted by
+`SAConfig.cancelSignal`.
+
+```ts
+interface CancellationSignal {
+  readonly aborted: boolean;
+}
+```
+
+This type intentionally does not depend on the DOM `AbortSignal` declaration.
+An `AbortController.signal` is compatible, but any object with an `aborted`
+boolean property also satisfies the contract.
+
+When `aborted` is true, `solve()` throws `SolveCancelledError` at the next
+cancellation check and does not create a final `Solution<TState>`.
+
+```ts
+import { SimulatedAnnealing, SolveCancelledError } from 'timetable-sa';
+
+const controller = new AbortController();
+
+const solver = new SimulatedAnnealing(initialState, constraints, moves, {
+  ...config,
+  cancelSignal: controller.signal,
+});
+
+controller.abort();
+
+try {
+  await solver.solve();
+} catch (error) {
+  if (error instanceof SolveCancelledError) {
+    // Handle user-requested cancellation.
+  } else {
+    throw error;
+  }
+}
+```
 
 ## `LoggingConfig`
 
@@ -465,6 +517,10 @@ The implementation has a few details that matter in production:
 - In `'fire-and-forget'` mode, the solver schedules the callback and continues.
 - If the callback throws or rejects, the error is caught and logged at `warn`
   level; the solve continues.
+- Callback errors do not cancel the solver. Use `SAConfig.cancelSignal` for
+  cancellation.
+- In `'fire-and-forget'` mode, callbacks that already started may still finish
+  after cancellation, so guard external writes with the same signal.
 - The callback is not invoked twice for the same iteration because
   `ProgressReporter` tracks `lastProgressIteration`.
 
@@ -727,6 +783,21 @@ it is not wrapped automatically into `ConstraintValidationError`.
 
 `SolveConcurrencyError` is thrown when `solve()` is called concurrently on the
 same solver instance.
+
+### `SolveCancelledError`
+
+`SolveCancelledError` is thrown when `SAConfig.cancelSignal` is aborted before
+or during `solve()`.
+
+```ts
+class SolveCancelledError extends SAError {
+  constructor(message = 'Simulated annealing solve cancelled');
+}
+```
+
+The error's `code` value is `SA_SOLVE_CANCELLED`. The solver resets its
+internal `isSolving` guard when this error is thrown. Cancelled runs do not
+create or return a final `Solution<TState>`.
 
 ## Example: fully typed configuration
 

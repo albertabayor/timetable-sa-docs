@@ -9,7 +9,12 @@ Complete technical documentation for `timetable-sa` - a production-grade, generi
 
 ## Overview
 
-This documentation provides comprehensive coverage of the `timetable-sa` package, organized to support practitioners at all levels—from first-time users to advanced researchers implementing domain-specific optimization systems. The reference sections are aligned with the current implementation in `src/` so the docs can be used as an operational source of truth, not only as conceptual guidance.
+This documentation provides comprehensive coverage of the `timetable-sa`
+package, organized to support practitioners at all levels—from first-time
+users to advanced researchers implementing domain-specific optimization
+systems. The reference sections are aligned with `timetable-sa@3.2.0`, so the
+docs can be used as an operational source of truth, not only as conceptual
+guidance.
 
 ### Documentation Philosophy
 

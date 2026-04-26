@@ -74,6 +74,30 @@ onProgressMode: 'await' | 'fire-and-forget'
 Also note that the callback receives `state = null` in the current
 implementation for performance reasons.
 
+Do not throw from `onProgress` to stop the solver. Callback errors are still
+caught and logged for backward compatibility, so cancellation must use
+`cancelSignal`.
+
+## Migrate cancellation handling
+
+Use `SAConfig.cancelSignal` when application code must stop a running solve.
+The field accepts an `AbortController.signal` or any object with an `aborted`
+boolean property.
+
+```ts
+const controller = new AbortController();
+
+const solver = new SimulatedAnnealing(initialState, constraints, moves, {
+  ...config,
+  cancelSignal: controller.signal,
+});
+
+controller.abort();
+```
+
+When the signal is aborted, `solve()` rejects with `SolveCancelledError` and
+does not create a final `Solution`.
+
 ## Migrate Phase 1.5 start-temperature assumptions
 
 The current branch no longer defaults to restarting Phase 1.5 from
@@ -155,6 +179,7 @@ appropriate.
 - `SAConfigError`
 - `ConstraintValidationError`
 - `SolveConcurrencyError`
+- `SolveCancelledError`
 
 You should also be aware that user-thrown exceptions from constraint evaluation
 can still propagate as plain errors.

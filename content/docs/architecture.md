@@ -209,6 +209,10 @@ try {
 }
 ```
 
+Cancellation does not use callback errors. The orchestration layer checks
+`config.cancelSignal?.aborted` directly and throws `SolveCancelledError` when
+the signal is aborted.
+
 ### Diagnostics data flow
 
 The current branch also records additive diagnostics in the orchestration layer
@@ -551,13 +555,15 @@ SAError
   -> SAConfigError
   -> ConstraintValidationError
   -> SolveConcurrencyError
+  -> SolveCancelledError
 ```
 
 The taxonomy is used for:
 
 - constructor-time validation failures,
 - runtime score-contract violations,
-- instance-level concurrency violations.
+- instance-level concurrency violations,
+- cooperative cancellation during `solve()`.
 
 Not every runtime failure is wrapped into this hierarchy. For example,
 user-thrown exceptions from `evaluate()` or failures in fallback signature

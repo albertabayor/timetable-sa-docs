@@ -243,34 +243,52 @@ The weighted score for operator `i` is:
 
 with `alpha = 1` and `beta = 2`.
 
-### Phase 1 targeting heuristics
+### Phase 1 targeting metadata
 
-When `prioritizeHardFixes` is true, the solver first narrows the candidate set.
-It prefers operators whose names suggest hard-fix behavior. Two layers are used:
+When hard-feasibility targeting is active, the solver first narrows the candidate
+set with explicit metadata instead of relying on display-name substrings.
 
-1. A fallback filter that prefers names containing terms such as `fix` or
-   `swap friday`.
-2. A more specific hinting layer that compares violated hard-constraint names to
-   move generator names and looks for substrings such as `exclusive`,
-   `lecturer`, `room conflict`, `capacity`, `max daily`, `friday`, and
-   `prayer`.
+The targeting path is:
+
+1. Evaluate hard constraints and detect whether any are currently violated.
+2. Normalize each violated constraint's `key`, when a key is present.
+3. Prefer applicable generators whose `targetConstraintKeys` include a violated
+   key.
+4. If no key match exists, prefer applicable generators whose
+   `targetConstraintTypes` includes `'hard'`.
+5. If no targeted generator exists, use the full applicable generator set.
 
 If targeted generators exist, they are selected with 70 percent probability;
-otherwise, the full applicable set is used.
+otherwise, the full applicable set is used. This keeps broad exploration alive
+while giving hard-repair operators a stronger chance to run.
+
+The implementation normalizes keys with trim and lowercase logic. You get the
+most predictable behavior when constraint keys are stable lowercase identifiers,
+such as `no_room_conflict` or `room_capacity`.
 
 ### Intensification targeting heuristics
 
 Phase 1.5 does not use the full `OperatorSelectionPolicy` selection path. It
-first filters applicable operators, then resolves an optional targeted set
-based on `config.intensificationTargetedOperatorNames`.
+first filters applicable operators, then resolves a targeted set with the same
+metadata-aware helper used by hard-feasibility search.
 
-- Matching uses a case-insensitive exact operator-name comparison.
-- If the targeted set is non-empty, it is chosen with probability
-  `intensificationTargetedSelectionRate`.
-- Otherwise, the solver chooses from all applicable generators.
+The resolution order is:
 
-If you do not provide `intensificationTargetedOperatorNames`, Phase 1.5 falls
-back to the full applicable generator set.
+1. If `intensificationTargetedOperatorNames` is non-empty, match normalized names
+   exactly against `moveGenerator.name`.
+2. If explicit names do not produce matches, match `targetConstraintKeys` against
+   currently violated hard constraint keys.
+3. If key matching does not produce matches, use generators whose
+   `targetConstraintTypes` includes `'hard'`.
+4. If none of those paths produce matches, use all applicable generators.
+
+If the targeted set is non-empty, it is chosen with probability
+`intensificationTargetedSelectionRate`. Otherwise, the solver chooses from all
+applicable generators.
+
+Use explicit names when you want config-level control over a small operator set.
+Use `Constraint.key` and `MoveGenerator.targetConstraintKeys` when you want the
+operator itself to declare which hard constraint it repairs.
 
 ## Reheating
 
@@ -336,11 +354,16 @@ For candidate state `s'`:
 - If hard violations are equal and fitness is worse, accept with probability
   `exp((currentFitness - newFitness) / intensificationTemp)`.
 - If hard violations are worse, accept only with a very small escape
-  probability:
+  probability that scales with both `hardConstraintWeight` and
+  `intensificationTemp`:
 
 ```text
-safeExp(-1 / (intensificationTemp / 10000)) * 0.02
+safeExp(-(hardConstraintWeight / intensificationTemp)) * 0.02
 ```
+
+This means higher `hardConstraintWeight` makes Phase 1.5 more conservative
+about accepting hard-worsening moves, while higher `intensificationTemp` makes
+those escape moves slightly more likely.
 
 ### Stagnation rule inside intensification
 

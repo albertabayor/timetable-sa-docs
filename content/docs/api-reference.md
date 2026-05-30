@@ -167,6 +167,7 @@ penalty.
 ```ts
 interface Constraint<TState> {
   name: string;
+  key?: string;
   type: 'hard' | 'soft';
   weight?: number;
   evaluate(state: TState): number;
@@ -179,6 +180,7 @@ interface Constraint<TState> {
 
 The implementation enforces the following contract at runtime:
 
+- `key`, when provided, must be a non-empty string.
 - `evaluate(state)` must return a finite number in the closed interval `[0, 1]`.
 - `1` means fully satisfied.
 - `0` means maximally violated.
@@ -186,6 +188,17 @@ The implementation enforces the following contract at runtime:
 
 This direction is important because the solver converts lack of satisfaction
 into penalty by using `1 - score`.
+
+### Stable constraint keys
+
+`key` is an optional stable identifier for programmatic matching. Use it when
+move generators need to declare that they target a specific constraint. Unlike
+`name`, which is a human-readable label for logs and reports, `key` is intended
+to remain stable when display text changes.
+
+Use lowercase semantic keys such as `no_room_conflict`, `room_capacity`, or
+`lecturer_availability`. Move generators can reference these values through
+`targetConstraintKeys`.
 
 ### Hard constraints
 
@@ -238,6 +251,7 @@ This example matches the actual satisfaction-oriented score contract.
 ```ts
 const noOverlap: Constraint<MyState> = {
   name: 'No overlap',
+  key: 'no_overlap',
   type: 'hard',
   evaluate(state) {
     return findOverlapCount(state) === 0 ? 1 : 0;
@@ -269,6 +283,8 @@ mutable working copy.
 ```ts
 interface MoveGenerator<TState> {
   name: string;
+  targetConstraintTypes?: ReadonlyArray<'hard' | 'soft'>;
+  targetConstraintKeys?: ReadonlyArray<string>;
   generate(state: TState, temperature: number): TState;
   canApply(state: TState): boolean;
 }
@@ -287,13 +303,27 @@ The effective contract is as follows:
 
 ### Selection implications
 
-Move generator names are not only labels. In Phase 1, the engine still contains
-name-aware heuristics that can prefer generators whose names include terms such
-as `fix`, `swap`, `friday`, `lecturer`, `exclusive`, or `capacity`.
+Move generator names are labels and statistics keys, but targeted repair should
+use metadata when possible.
 
-Phase 1.5 is more explicit in the current branch. If you provide
-`intensificationTargetedOperatorNames`, the solver uses those exact names with a
-case-insensitive comparison instead of relying on substring heuristics.
+- `targetConstraintTypes` declares broad intent, such as `['hard']` for a repair
+  operator that focuses on hard feasibility.
+- `targetConstraintKeys` declares precise intent by referencing stable
+  `Constraint.key` values, such as `['no_room_conflict', 'room_capacity']`.
+
+During hard-feasibility search, the solver can prioritize move generators whose
+`targetConstraintKeys` match the currently violated hard constraint keys. If no
+key match exists, it can fall back to operators whose `targetConstraintTypes`
+contains `'hard'`.
+
+Phase 1.5 also supports explicit operator targeting through
+`intensificationTargetedOperatorNames`. Those names are normalized and matched
+exactly against `moveGenerator.name` before metadata-based targeting is used.
+
+The constructor validates targeting metadata when it is provided:
+
+- `targetConstraintTypes` must be an array containing only `'hard'` or `'soft'`.
+- `targetConstraintKeys` must be an array of non-empty strings.
 
 ## `SAConfig<TState>`
 
@@ -400,6 +430,11 @@ The validator applies these rules when the corresponding field is provided:
   `'initial-reset'`.
 - `intensificationStartTempMultiplier`: finite number greater than `0`.
 - `intensificationStartTempCapRatio`: finite number greater than `0`.
+- constraint `key`: non-empty string when provided.
+- move-generator `targetConstraintTypes`: array containing only `'hard'` or
+  `'soft'` when provided.
+- move-generator `targetConstraintKeys`: array of non-empty strings when
+  provided.
 - `intensificationTargetedOperatorNames`: array of non-empty strings.
 - `intensificationTargetedSelectionRate`: probability in the closed interval
   `[0, 1]`.
@@ -513,6 +548,8 @@ The implementation has a few details that matter in production:
 - `state` is always `null`. This is an intentional performance decision to
   avoid cloning the current state for telemetry.
 - The callback can be synchronous or asynchronous.
+- The callback can be emitted from Phase 1, Phase 1.5 intensification, and
+  Phase 2 when progress cadence conditions are met.
 - In `'await'` mode, the solver waits for completion.
 - In `'fire-and-forget'` mode, the solver schedules the callback and continues.
 - If the callback throws or rejects, the error is caught and logged at `warn`

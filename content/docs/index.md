@@ -12,17 +12,19 @@ Complete technical documentation for `timetable-sa` - a production-grade, generi
 This documentation provides comprehensive coverage of the `timetable-sa`
 package, organized to support practitioners at all levels—from first-time
 users to advanced researchers implementing domain-specific optimization
-systems. The reference sections are aligned with `timetable-sa@3.2.0`, so the
-docs can be used as an operational source of truth, not only as conceptual
-guidance.
+systems. The reference sections track the current `main` branch, including
+changes expected for `timetable-sa@3.2.1`, so the docs can be used as an
+operational source of truth, not only as conceptual guidance.
 
-### Documentation Philosophy
+### Documentation philosophy
 
-this documentation prioritizes:
+This documentation prioritizes:
 
-- **Completeness**: Every public API, configuration option, and internal mechanism documented
+- **Completeness**: Every public API, configuration option, and internal
+  mechanism documented
 - **Precision**: Technical accuracy with mathematical formalism where appropriate
-- **Practicality**: Working examples, configuration profiles, and troubleshooting guidance
+- **Practicality**: Working examples, configuration profiles, and troubleshooting
+  guidance
 - **Extensibility**: Clear extension points for custom constraints, move
   generators, policies, and diagnostics-driven tuning
 

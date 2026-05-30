@@ -148,6 +148,7 @@ cadence-related rather than callback-related.
 The solver emits progress:
 
 - at iteration `0`,
+- during Phase 1, optional Phase 1.5 intensification, and Phase 2,
 - every `logging.logInterval` iterations,
 - on forced events such as reheating.
 
@@ -265,20 +266,31 @@ Inspect either `solution.diagnostics.intensification` or
 ## Intensification does not use the operators you expect
 
 If Phase 1.5 keeps choosing broad exploratory moves instead of the repair
-operators you intended, verify the explicit targeting configuration first.
+operators you intended, verify explicit targeting and metadata targeting.
 
 ### Why it happens
 
-The branch implementation uses `intensificationTargetedOperatorNames` as a
-case-insensitive exact-name match. If the names do not match, the targeted set
-is empty and Phase 1.5 falls back to all applicable generators.
+The solver resolves targeted operators in layers. It first checks
+`intensificationTargetedOperatorNames` with normalized exact-name matching. If
+that does not produce matches, it can match `MoveGenerator.targetConstraintKeys`
+against violated hard `Constraint.key` values. If that also does not produce
+matches, it can use generators tagged with `targetConstraintTypes: ['hard']`.
+
+Targeting fails when names or keys do not match, when a hard constraint has no
+stable key, or when a move generator still relies on old display-name substring
+behavior.
 
 Tabu gating can also make a good operator appear inactive if its candidates are
 being skipped before acceptance.
 
 ### How to fix it
 
-- compare your configured names against `moveGenerator.name` exactly,
+- compare configured names against `moveGenerator.name` exactly,
+- add a stable `Constraint.key` such as `no_room_conflict`,
+- set matching `targetConstraintKeys` on precise repair operators,
+- use `targetConstraintTypes: ['hard']` for broad hard-repair operators,
+- avoid display labels such as `No Room Conflict` in `targetConstraintKeys`,
+- fix empty string keys or target keys before constructing the solver,
 - increase `intensificationTargetedSelectionRate` if the targeted set exists but
   is chosen too rarely,
 - inspect `phase15TabuSkips` in diagnostics,
@@ -310,15 +322,18 @@ schedule alone.
 
 - `hardConstraintWeight` is too small,
 - move generators do not directly repair the dominant violations,
-- operator names do not align with the Phase 1 targeting heuristics,
+- hard constraints are missing stable `key` values,
+- repair operators are missing matching `targetConstraintKeys`,
+- broad hard-repair operators are missing `targetConstraintTypes: ['hard']`,
 - `getViolations()` is missing, so hard-violation multiplicity is only inferred,
 - the problem instance may be infeasible.
 
 ### Recommended actions
 
 - increase `hardConstraintWeight`,
-- add or rename repair-oriented operators with names like `fix`, `swap`,
-  `change`, `capacity`, `lecturer`, or domain-specific equivalents,
+- add repair-oriented operators for the dominant violations,
+- add stable constraint keys and matching move-generator `targetConstraintKeys`,
+- tag broad hard-repair operators with `targetConstraintTypes: ['hard']`,
 - implement `getViolations()` for hard constraints,
 - run several independent solves before concluding infeasibility.
 

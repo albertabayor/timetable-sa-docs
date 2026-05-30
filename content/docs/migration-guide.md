@@ -120,17 +120,39 @@ from the configured `initialTemperature`.
 
 ## Migrate operator targeting assumptions
 
-Older mental models often described Phase 1.5 as preferring operators whose
-names merely looked like repair operators. The branch API now exposes an
-explicit targeting surface.
+Older mental models often described Phase 1 and Phase 1.5 as preferring
+operators whose names merely looked like repair operators. The current API
+exposes an explicit targeting surface.
+
+```ts
+const noRoomConflict: Constraint<TimetableState> = {
+  name: 'No room conflict',
+  key: 'no_room_conflict',
+  type: 'hard',
+  evaluate: evaluateRoomConflicts,
+};
+
+const fixRoomConflict: MoveGenerator<TimetableState> = {
+  name: 'Fix room conflict',
+  targetConstraintTypes: ['hard'],
+  targetConstraintKeys: ['no_room_conflict'],
+  canApply: canRepairRooms,
+  generate: repairRoomConflict,
+};
+```
+
+The metadata fields are optional, so existing constraints and move generators
+remain compatible. Add them when you want predictable hard-repair targeting.
+
+You can still use config-level explicit names:
 
 ```ts
 intensificationTargetedOperatorNames: ['Repair hard conflict']
 ```
 
-Matching is case-insensitive, but it is still an exact name match. If you want
-deterministic targeting, rely on this field instead of assuming the solver will
-infer the right operators from substrings alone.
+Matching is case-insensitive, but it is still an exact name match. For targeting
+that survives display-name changes, prefer stable `Constraint.key` values and
+matching `MoveGenerator.targetConstraintKeys` instead of substring assumptions.
 
 ## Migrate Phase 1.5 budget assumptions
 
@@ -183,6 +205,24 @@ appropriate.
 
 You should also be aware that user-thrown exceptions from constraint evaluation
 can still propagate as plain errors.
+
+## Migrate to `timetable-sa@3.2.1`
+
+Version `3.2.1` keeps the existing constructor, constraint, and move-generator
+contracts compatible. The new targeting metadata is additive.
+
+Use this release to improve hard-repair targeting without rewriting your solver
+integration:
+
+1. Add stable `key` values to hard constraints that have dedicated repair moves.
+2. Add matching `targetConstraintKeys` to precise repair operators.
+3. Add `targetConstraintTypes: ['hard']` to broad feasibility-repair operators.
+4. Keep `intensificationTargetedOperatorNames` only when a deployment needs to
+   prefer exact operator names from configuration.
+
+If your old tuning depended on operator names containing words such as `fix`,
+`capacity`, or `lecturer`, migrate that intent to metadata. Metadata targeting is
+more predictable because it does not depend on display labels.
 
 ## Recommended migration sequence
 

@@ -24,6 +24,7 @@ type State = {
 const constraints: Constraint<State>[] = [
   {
     name: 'Sum must stay under 20',
+    key: 'sum_under_limit',
     type: 'hard',
     evaluate: (state) =>
       state.values.reduce((sum, value) => sum + value, 0) <= 20 ? 1 : 0,
@@ -42,6 +43,8 @@ const constraints: Constraint<State>[] = [
 const moves: MoveGenerator<State>[] = [
   {
     name: 'Adjust one value',
+    targetConstraintTypes: ['hard'],
+    targetConstraintKeys: ['sum_under_limit'],
     canApply: (state) => state.values.length > 0,
     generate: (state) => {
       const index = Math.floor(Math.random() * state.values.length);
@@ -84,6 +87,46 @@ Use this example to understand the minimum pieces you need:
 - at least one move generator,
 - a `cloneState` function,
 - an awaited call to `solve()`.
+
+## Targeted repair metadata
+
+The minimal example includes `key`, `targetConstraintTypes`, and
+`targetConstraintKeys` because those fields are the preferred way to connect hard
+constraints with repair-oriented move generators.
+
+The same pattern appears in the timetabling example. A hard constraint such as
+`NoRoomConflict` defines a stable key, and a repair operator such as
+`FixRoomConflict` declares that it targets that key.
+
+```ts
+class NoRoomConflict implements Constraint<TimetableState> {
+  name = 'No Room Conflict';
+  key = 'no_room_conflict';
+  type = 'hard' as const;
+
+  evaluate(state: TimetableState): number {
+    return hasRoomConflicts(state) ? 0 : 1;
+  }
+}
+
+class FixRoomConflict implements MoveGenerator<TimetableState> {
+  name = 'Fix Room Conflict';
+  targetConstraintTypes = ['hard'] as const;
+  targetConstraintKeys = ['no_room_conflict'];
+
+  canApply(state: TimetableState): boolean {
+    return state.schedule.length > 0;
+  }
+
+  generate(state: TimetableState): TimetableState {
+    return repairRoomConflict(state);
+  }
+}
+```
+
+Use one stable lowercase key per constraint, then repeat that key in each move
+operator that can repair the constraint. For broad hard-repair operators, use
+`targetConstraintTypes: ['hard']` even when there is no single precise key.
 
 ## Advanced Phase 1.5 example
 

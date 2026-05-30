@@ -171,6 +171,7 @@ This section captures the explicit rules enforced by
 Each constraint must satisfy these checks:
 
 - `name` must be a non-empty string,
+- `key`, when provided, must be a non-empty string,
 - `type` must be `'hard'` or `'soft'`,
 - `evaluate` must be a function.
 
@@ -188,6 +189,11 @@ Each move generator must satisfy these checks:
 - `name` must be a non-empty string,
 - `generate` must be a function,
 - `canApply` must be a function.
+
+When targeting metadata is provided:
+
+- `targetConstraintTypes` must be an array containing only `'hard'` or `'soft'`,
+- `targetConstraintKeys` must be an array of non-empty strings.
 
 As with constraints, the constructor validates shape but does not require the
 array to be non-empty.
@@ -407,6 +413,39 @@ reaches `intensificationStagnationLimit`. What changed in this branch is the
 starting-point policy, the targeted operator controls, the optional tabu gate,
 and the budget and early-stop semantics.
 
+### Targeted operator configuration
+
+Targeting has two layers: config-level names and move-generator metadata. Use
+`intensificationTargetedOperatorNames` when you want a specific deployment
+configuration to prefer named operators. Use metadata when the operator itself
+knows which constraints it repairs.
+
+```ts
+const noRoomConflict: Constraint<TimetableState> = {
+  name: 'No room conflict',
+  key: 'no_room_conflict',
+  type: 'hard',
+  evaluate: evaluateRoomConflicts,
+};
+
+const fixRoomConflict: MoveGenerator<TimetableState> = {
+  name: 'Fix room conflict',
+  targetConstraintTypes: ['hard'],
+  targetConstraintKeys: ['no_room_conflict'],
+  canApply: canRepairRooms,
+  generate: repairRoomConflict,
+};
+```
+
+When Phase 1.5 needs a targeted set, it first checks explicit operator names. If
+those names do not match, it can match `targetConstraintKeys` against violated
+hard constraint keys. If no key match exists, it can use operators tagged with
+`targetConstraintTypes: ['hard']`.
+
+Keep constraint keys stable and semantic. Good keys are lowercase identifiers
+such as `no_room_conflict`, `room_capacity`, and `lecturer_availability`. Avoid
+using display labels such as `No Room Conflict` in `targetConstraintKeys`.
+
 ### Tuning guidance
 
 - Increase `intensificationIterations` for difficult feasibility problems.
@@ -416,8 +455,12 @@ and the budget and early-stop semantics.
   long.
 - Use `intensificationStartTemperatureMode: 'initial-reset'` when you want the
   legacy restart behavior and broader exploration at the start of each attempt.
-- Populate `intensificationTargetedOperatorNames` when you know exactly which
-  operators are intended to repair remaining hard conflicts.
+- Populate `intensificationTargetedOperatorNames` when a configuration needs to
+  prefer exact operator names.
+- Add `Constraint.key` and matching `MoveGenerator.targetConstraintKeys` when a
+  repair operator targets specific hard constraints.
+- Add `targetConstraintTypes: ['hard']` for broad hard-repair operators that do
+  not map cleanly to one constraint key.
 - Increase `intensificationBudgetFractionOfMaxIterations` when Phase 1.5 ends
   by budget before it has a realistic chance to improve feasibility.
 - Disable `intensificationUseTabu` when Phase 1.5 becomes too conservative and
@@ -488,6 +531,8 @@ monitoring, and experimentation.
 - `onProgressMode` defaults to `'await'`.
 - The callback may return `void` or `Promise<void>`.
 - `state` is intentionally `null` in every invocation.
+- Progress callbacks can be emitted during Phase 1, Phase 1.5
+  intensification, and Phase 2.
 - Callback failures are caught and logged, not propagated.
 - Callback failures do not cancel the solver. Use `cancelSignal` for
   cancellation.

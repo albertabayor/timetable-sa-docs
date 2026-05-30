@@ -10,7 +10,8 @@ TypeScript project. The package is runtime-light, but it assumes you are
 working in a modern JavaScript environment that supports the current Node.js
 ecosystem.
 
-These docs describe the `timetable-sa@3.2.0` public API, including cooperative
+These docs track the current `main` branch of `timetable-sa`, including the
+runtime behavior expected for the upcoming `3.2.1` release and cooperative
 cancellation through `SAConfig.cancelSignal`.
 
 ## Requirements

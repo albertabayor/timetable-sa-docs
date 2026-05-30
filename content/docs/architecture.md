@@ -408,7 +408,11 @@ inside the main loop. It is a standalone procedure with restart semantics.
 In the current branch, that procedure also has:
 
 - an explicit global Phase 1.5 budget cap,
-- an optional exact-name targeted operator set,
+- optional exact-name targeted operators from configuration,
+- metadata-based targeting through `Constraint.key` and
+  `MoveGenerator.targetConstraintKeys`,
+- optional broad hard-repair targeting through
+  `MoveGenerator.targetConstraintTypes`,
 - optional tabu gating inside Phase 1.5,
 - a per-attempt early-stop rule based on the global best hard-violation
   objective.
@@ -455,20 +459,23 @@ system in
 
 ### Cache design
 
-The solver caches a `Set<string>` of violated hard-constraint names for 50
-iterations.
+The solver caches the current state reference, whether any hard constraint is
+violated, and a `Set<string>` of normalized violated hard-constraint keys.
 
-This cache avoids recomputing the violated hard-constraint set on every
-iteration, which is a useful compromise between reactivity and cost.
+This cache avoids recomputing hard-constraint hints repeatedly for the same state,
+which is a useful compromise between reactivity and cost.
 
-### Heuristic design
+### Metadata design
 
-The architecture uses string-matching heuristics rather than formal metadata.
-It compares lowercased constraint names against lowercased operator names and
-prefers combinations that appear semantically aligned.
+The architecture uses formal targeting metadata instead of display-name
+substring matching. Violated hard constraints contribute their normalized
+`Constraint.key` values, and move generators can declare matching
+`targetConstraintKeys`.
 
-This makes the system simple and practical, but it also means naming conventions
-matter.
+When no precise key match exists, generators tagged with
+`targetConstraintTypes: ['hard']` provide a broad hard-repair fallback. This
+keeps targeting stable when labels change and lets operators express repair
+intent directly.
 
 ## Tabu architecture
 
@@ -606,8 +613,8 @@ maintenance principles.
 
 - Keep score semantics consistent across all docs and tests: higher score means
   better satisfaction.
-- Be careful when changing operator names because Phase 1 heuristics depend on
-  them.
+- Prefer stable targeting metadata over display-name conventions for hard-repair
+  operators.
 - Treat progress callbacks as observational and non-authoritative.
 - Preserve deterministic signature behavior whenever state structure evolves.
 - Prefer adding focused modules over growing `SimulatedAnnealing.ts` further,
